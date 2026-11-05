@@ -120,7 +120,7 @@ def http_get(url, params=None, headers=None, tries=3, as_json=True, timeout=40):
                 time.sleep(4)
                 continue
             r.raise_for_status()
-            return r.json() if as_json else r.text
+            return r.json() if as_json else r.content
         except Exception as e:  # noqa: BLE001
             last = e
             time.sleep(3)
@@ -206,7 +206,7 @@ def aa_norm(it, found_by):
     if km is None:
         km = _km((lok.get("koordinaten") or {}).get("lat"), (lok.get("koordinaten") or {}).get("lon"))
     if km is None:
-        km = ort.get("entfernung")
+        km = it.get("entfernung") or ort.get("entfernung")
         try:
             km = round(float(km)) if km not in (None, "") else None
         except Exception:  # noqa: BLE001
@@ -235,13 +235,15 @@ def aa_norm(it, found_by):
         "published": published[:10] or None,
         "first_published": (it.get("datumErsteVeroeffentlichung") or "")[:10] or None,
         "modified": it.get("aenderungsdatum") or it.get("modifikationsTimestamp"),
-        "start": it.get("eintrittsdatum"),
+        "start": it.get("eintrittsdatum") or it.get("eintrittszeitraum"),
         "fulltime": it.get("arbeitszeitVollzeit"),
-        "parttime": it.get("arbeitszeitTeilzeit"),
+        "parttime": any(it.get(k) for k in ("arbeitszeitTeilzeit", "arbeitszeitTeilzeitFlexibel", "arbeitszeitTeilzeitVormittag", "arbeitszeitTeilzeitNachmittag", "arbeitszeitTeilzeitAbend")) or None,
         "contract": it.get("vertragsdauer"),
         "salary_listed": salary,
         "external_url": it.get("externeURL") or it.get("externeUrl"),
         "partner": it.get("allianzpartnerName"),
+        "quereinstieg": it.get("quereinstiegGeeignet"),
+        "minijob": it.get("istGeringfuegigeBeschaeftigung"),
         "found_by": [found_by],
         "homeoffice": bool(it.get("homeofficemoeglich")),
     }
@@ -278,6 +280,8 @@ def aa_details(refnr):
         "published": (d.get("aktuelleVeroeffentlichungsdatum") or ((d.get("veroeffentlichungszeitraum") or {}).get("von") if isinstance(d.get("veroeffentlichungszeitraum"), dict) else "") or "")[:10] or None,
         "first_published": (d.get("ersteVeroeffentlichungsdatum") or d.get("datumErsteVeroeffentlichung") or "")[:10] or None,
         "zeitarbeit": d.get("istArbeitnehmerUeberlassung") if d.get("istArbeitnehmerUeberlassung") is not None else d.get("istZeitarbeit"),
+        "vermittlung": d.get("istPrivateArbeitsvermittlung"),
+        "quereinstieg": d.get("quereinstiegGeeignet"),
         "homeoffice_hint": bool(d.get("homeofficemoeglich") or d.get("arbeitszeitHeimarbeit") or (azm and any("HEIM" in str(a).upper() or "TELE" in str(a).upper() for a in azm))),
     }
     return info
@@ -357,7 +361,21 @@ def scan_jobboerse(details_cache):
                 rec["homeoffice"] = True
         else:
             rec["description"] = None
+    # Branchen-Check: 'prefer' ohne Branchenwort in Titel+Text wandert nach 'other' (die Suchwörter treffen auch Nebensätze)
+    keep, demoted = [], 0
+    for rec in tiers["prefer"]:
+        blob = " ".join(str(rec.get(k) or "") for k in ("title", "beruf", "company", "description", "employer_profile"))
+        rec["industry_match"] = bool(INDUSTRY.search(blob))
+        if rec["industry_match"] or rec.get("description") is None:
+            keep.append(rec)
+        else:
+            rec["title_tier"] = "other"
+            rec.pop("description", None)
+            tiers["other"].append(rec)
+            demoted += 1
+    tiers["prefer"] = keep
     STATS["jobboerse_details_fetched"] = fetched
+    STATS["jobboerse_demoted_no_industry"] = demoted
     return tiers["prefer"], tiers["other"], jobs
 
 
@@ -403,11 +421,14 @@ def scan_personio(e):
         err(f"Personio {e['name']}: XML {ex}")
         return None
     base = e["feed"].split("/xml")[0]
+    loc_re = re.compile(e["location_regex"], re.I) if e.get("location_regex") else None
     jobs = []
     for pos in root.iter("position"):
         g = lambda tag: (pos.findtext(tag) or "").strip()  # noqa: E731
         pid = g("id")
         title = g("name")
+        if loc_re and not loc_re.search(" ".join([g("office"), g("additionalOffices"), title])):
+            continue
         descs = []
         for jd in pos.iter("jobDescription"):
             nm = (jd.findtext("name") or "").strip()
