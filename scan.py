@@ -47,6 +47,8 @@ EXCL = re.compile(CFG["title_exclude"], re.I)
 PREF = re.compile(CFG["title_prefer"], re.I)
 INDUSTRY = re.compile(CFG["industry_regex"], re.I)
 INDUSTRY_STRICT = re.compile(CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
+ADJACENT = re.compile(CFG["title_adjacent"], re.I) if CFG.get("title_adjacent") else None
+CORE = re.compile(CFG["title_core"], re.I) if CFG.get("title_core") else None
 MAX_DESC = int(CFG.get("max_description_chars", 4000))
 
 
@@ -107,6 +109,9 @@ def title_tier(title):
     """'drop' | 'prefer' | 'other'"""
     t = title or ""
     if EXCL.search(t):
+        return "drop"
+    # Nur Wind/Wärme/Laden/Netzbau im Titel ohne PV- oder Speicherwort: raus (PV oder BESS muss zur Rolle gehören)
+    if ADJACENT and ADJACENT.search(t) and not (CORE and CORE.search(t)):
         return "drop"
     if PREF.search(t):
         return "prefer"
