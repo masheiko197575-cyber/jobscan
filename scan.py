@@ -709,7 +709,29 @@ def scan_jobspy():
 
 # ----------------------------------------------------------------------------- SerpApi (Google for Jobs)
 
-SERP_AGG = re.compile(r"linkedin\.|indeed\.|stepstone\.|xing\.|glassdoor\.|kununu\.|jooble\.|jobijoba|adzuna|talent\.com|jobrapido|jooble|neuvoo|kimeta|yoojo|careerjet|monster\.|jobware|joblift|bebee|trabajo\.org|kleinanzeigen|jobs\.de|hokify|heyjobs|joblocal", re.I)
+SERP_AGG = re.compile(r"linkedin\.|indeed\.|stepstone\.|xing\.|glassdoor\.|kununu\.|jooble|jobijoba|adzuna|talent\.com|jobrapido|neuvoo|kimeta|careerjet|monster\.|jobware|joblift|bebee|trabajo\.org|kleinanzeigen|hokify|heyjobs|joblocal|studysmarter|learn4good|simplyhired|jobleads|jobtensor|womenforhire|salutemyjob|mygermanjobs|job\.fish|stellenanzeigen\.de|stellenonline|jobvector|yourfirm|jobs\.de|jobbörse|jobboerse|meinestadt|regio-jobanzeiger|rejobs|greenjobs|eejobs|solarjob|energiejobs|whatjobs|jobisjob|jobs\.ch|arbeitsagentur|ebay|facebook|google\.com|stevenagefc|jobijoba|jobsora|jooble|expertini|de\.jobted|jobted|ziprecruiter|grabjobs|workwise|campusjaeger|absolventa|gigajob|jobsuche", re.I)
+
+
+def _norm_key(s):
+    return re.sub(r"[^a-z0-9äöüß]+", " ", (s or "").lower()).strip()
+
+
+def _best_link(links, company):
+    """Bevorzugt die Arbeitgeber-Seite: Domain enthält ein Wort des Firmennamens; sonst erste Nicht-Aggregator-Seite."""
+    toks = [t for t in re.split(r"[^a-z0-9]+", (company or "").lower()) if len(t) >= 4 and t not in ("gmbh", "group", "gruppe", "solar", "energy", "energie", "deutschland", "germany")]
+    best, best_score = None, -1
+    for a in links:
+        link = a.get("link") or ""
+        host = re.sub(r"^https?://(www\.)?", "", link).split("/")[0].lower()
+        if any(t in host for t in toks):
+            score = 2
+        elif not SERP_AGG.search(host + " " + str(a.get("title", ""))):
+            score = 1
+        else:
+            score = 0
+        if score > best_score:
+            best, best_score = a, score
+    return best or {}
 
 
 def _rel_date(txt):
@@ -775,6 +797,7 @@ def scan_serpapi():
     if cfg.get("location"):
         common["location"] = cfg["location"]
     out = {}
+    dup_index = {}
     used = 0
     stale_hits = 0
     for q in todays:
@@ -790,6 +813,9 @@ def scan_serpapi():
             if "returned any results" not in str(d.get("error")):
                 err(f"SerpApi «{q}»: {str(d.get('error'))[:120]}")
             continue
+        if "filters_seen" not in st:
+            st["filters_seen"] = [{"name": f.get("name"), "options": [o.get("name") for o in (f.get("options") or [])][:8]} for f in (d.get("filters") or []) if isinstance(f, dict)][:8]
+            st["response_keys"] = sorted(k for k in d.keys() if not k.startswith("search_"))
         # Datumsfilter (uds) einmalig aus den Filtern merken: "Letzte 3 Tage" / "Last 3 days"
         if not uds:
             for f in d.get("filters") or []:
@@ -827,8 +853,21 @@ def scan_serpapi():
             if not INDUSTRY.search(title + " " + desc[:3000]):
                 continue
             links = [a for a in (j.get("apply_options") or []) if isinstance(a, dict) and a.get("link")]
-            direct = [a for a in links if not SERP_AGG.search(a.get("link", "") + " " + str(a.get("title", "")))]
-            best = (direct or links or [{}])[0]
+            company = (j.get("company_name") or "").strip()
+            # dieselbe Stelle über mehrere Jobbörsen: zusammenführen (Titel + Firma)
+            dup_key = _norm_key(title) + "|" + _norm_key(company)
+            twin = dup_index.get(dup_key)
+            if twin:
+                have = {a.get("link") for a in twin["apply_links"]}
+                twin["apply_links"].extend({"title": a.get("title"), "link": a.get("link")} for a in links if a.get("link") not in have)
+                twin["apply_links"] = twin["apply_links"][:8]
+                twin["url"] = _best_link([{"title": a.get("title"), "link": a.get("link")} for a in twin["apply_links"]], company).get("link") or twin["url"]
+                if f"Google Jobs: {q}" not in twin["found_by"]:
+                    twin["found_by"].append(f"Google Jobs: {q}")
+                if not twin.get("published") and posted:
+                    twin["published"] = posted
+                continue
+            best = _best_link(links, company)
             out[key_id] = {
                 "id": key_id,
                 "source": "Google Jobs",
@@ -849,6 +888,7 @@ def scan_serpapi():
                 "title_tier": tier,
                 "found_by": [f"Google Jobs: {q}"],
             }
+            dup_index[dup_key] = out[key_id]
         if uds and jobs and old == len(jobs):
             stale_hits += 1
         time.sleep(1.5)
