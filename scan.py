@@ -651,6 +651,21 @@ def scan_atom():
 
 # ----------------------------------------------------------------------------- JobSpy (optional)
 
+# Nur Stellen in Deutschland: LinkedIn kennt «Deutschland» nicht und sucht dann am Standort des
+# GitHub-Servers (USA) — darum je Seite eigener Ort (config jobspy.locations) und dieser Filter.
+DE_LOC = re.compile(
+    r"\b(Germany|Deutschland)\b|Baden-Württemberg|Bayern|Bavaria|Nordrhein|North Rhine|Niedersachsen|Lower Saxony|"
+    r"Hessen|Hesse|Rheinland|Rhineland|Sachsen|Saxony|Thüringen|Thuringia|Schleswig|Brandenburg|Mecklenburg|Saarland|"
+    r"Stuttgart|München|Munich|Köln|Cologne|Düsseldorf|Frankfurt|Hamburg|Berlin|Leipzig|Dresden|Hannover|Hanover|"
+    r"Nürnberg|Nuremberg|Bremen|Ruhr|Rhein-Neckar|Rhine-Neckar|Karlsruhe|Mannheim|Heidelberg|Freiburg|Ludwigsburg|"
+    r"Heilbronn|Augsburg|Bonn|Dortmund|Münster|Aachen", re.I)
+NOT_DE_LOC = re.compile(r"\bUSA\b|United States|\bUK\b|United Kingdom|Canada|India|Australia", re.I)
+
+
+def in_germany(loc):
+    return bool(loc) and bool(DE_LOC.search(loc)) and not NOT_DE_LOC.search(loc)
+
+
 def scan_jobspy():
     cfg = CFG.get("jobspy") or {}
     if not cfg.get("enabled", True):
@@ -661,13 +676,14 @@ def scan_jobspy():
         err(f"jobspy nicht verfügbar: {ex}")
         return []
     out = {}
+    abroad = {}
     for term in cfg.get("terms", []):
         for site in cfg.get("sites", ["indeed", "linkedin"]):
             try:
                 df = scrape_jobs(
                     site_name=[site],
                     search_term=term,
-                    location=cfg.get("location", "Deutschland"),
+                    location=(cfg.get("locations") or {}).get(site) or cfg.get("location", "Deutschland"),
                     country_indeed=cfg.get("country_indeed", "germany"),
                     hours_old=int(cfg.get("hours_old", 24)),
                     results_wanted=int(cfg.get("results_wanted", 40)),
@@ -686,6 +702,11 @@ def scan_jobspy():
                     if url in out and f"{site}: {term}" not in out[url]["found_by"]:
                         out[url]["found_by"].append(f"{site}: {term}")
                     continue
+                loc = row.get("location")
+                loc = "" if loc is None or isinstance(loc, float) else str(loc)
+                if not in_germany(loc):
+                    abroad[site] = abroad.get(site, 0) + 1
+                    continue
                 title = str(row.get("title") or "")
                 tier = title_tier(title)
                 if tier == "drop":
@@ -698,7 +719,7 @@ def scan_jobspy():
                     "source": {"indeed": "Indeed", "linkedin": "LinkedIn"}.get(site, site),
                     "title": title,
                     "company": str(row.get("company") or ""),
-                    "location": str(row.get("location") or ""),
+                    "location": loc,
                     "remote": bool(row.get("is_remote")) if row.get("is_remote") is not None else None,
                     "published": str(dp)[:10] if dp is not None and str(dp) not in ("NaT", "nan", "None") else None,
                     "url": url,
@@ -707,7 +728,11 @@ def scan_jobspy():
                     "found_by": [f"{site}: {term}"],
                 }
             time.sleep(2)
-    log(f"JobSpy: {len(out)} Treffer")
+    kept = {}
+    for rec in out.values():
+        kept[rec["source"]] = kept.get(rec["source"], 0) + 1
+    STATS["jobspy"] = {"kept": kept, "abroad_dropped": abroad}
+    log(f"JobSpy: {len(out)} Treffer {kept}, außerhalb Deutschlands verworfen: {abroad}")
     return list(out.values())
 
 
