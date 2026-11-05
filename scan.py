@@ -1058,7 +1058,7 @@ def main():
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
             "watch": "beobachtete Firmen: id → {name, method, jobs[]}; jobs mit title_tier prefer haben description",
-            "boards": "eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn) und Google Jobs (SerpApi, mit description), nur Titel die nicht ausgeschlossen sind",
+            "boards": "eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn) und Google Jobs (SerpApi); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
         },
         "candidates": sorted(prefer, key=lambda r: (r.get("km") is None, r.get("km") or 0, r.get("company") or "")),
         "other": [{k: r.get(k) for k in ("refnr", "title", "company", "location", "km", "published", "url", "homeoffice", "found_by")} for r in sorted(other, key=lambda r: (r.get("km") is None, r.get("km") or 0))],
