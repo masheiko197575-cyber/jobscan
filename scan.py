@@ -25,6 +25,7 @@ import time
 import xml.etree.ElementTree as ET
 
 import requests
+from urllib.parse import urlencode
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, "data")
@@ -785,6 +786,143 @@ def scan_jobspy():
 
 
 
+# ----------------------------------------------------------------------------- XING (öffentliche Jobsuche)
+
+# Suchseite ohne Login: ~18 Karten je Begriff (nach Relevanz, nicht nach Datum). Für neue Karten wird die
+# Stellenseite gelesen (JSON-LD JobPosting: Titel, Firma, Ort, Land, datePosted, Volltext) und im details-Cache
+# gehalten (Schlüssel "xing:<id>"), damit jede Stelle nur einmal geladen wird.
+XING_CARD = re.compile(r'<a href="(/jobs/[a-z0-9\-]+-(\d+))"[^>]*aria-label="([^"]*)"')
+XING_NOISE = re.compile(r"^(Dringend gesucht|Zu den Ersten gehören|Letzte Chance|Top[- ]Job|Einfach bewerben|Job merken|Neu|Top-Job|,|\+ \d+ weitere|Externes Job-Angebot.*)$")
+
+
+def xing_get(url):
+    try:
+        r = requests.get(url, headers=LI_HEADERS, timeout=30)
+    except Exception:  # noqa: BLE001
+        return None
+    if r.status_code != 200:
+        return None
+    r.encoding = "utf-8"
+    return r.text
+
+
+def xing_cards(page):
+    out = []
+    for seg in re.split(r'(?=<a href="/jobs/[a-z0-9\-]+-\d+")', page)[1:]:
+        m = XING_CARD.match(seg)
+        if not m:
+            continue
+        title = html.unescape(m.group(3)).strip()
+        txt = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", seg[:8000], flags=re.S)
+        parts = [html.unescape(p).strip() for p in re.sub(r"<[^>]+>", "|", txt).split("|")]
+        parts = [p for p in parts if p and p != "\xa0" and p != title and not XING_NOISE.match(p)]
+        out.append({"path": m.group(1), "id": m.group(2), "title": title,
+                    "company": parts[0] if parts else "", "location": parts[1] if len(parts) > 1 else ""})
+    return out
+
+
+def xing_details(page):
+    """Felder aus dem JSON-LD JobPosting der Stellenseite; None, wenn keins da ist."""
+    for block in re.findall(r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>', page or "", re.S):
+        try:
+            d = json.loads(block)
+        except Exception:  # noqa: BLE001
+            continue
+        if isinstance(d, list):
+            d = next((x for x in d if isinstance(x, dict) and x.get("@type") == "JobPosting"), None)
+        if not isinstance(d, dict) or d.get("@type") != "JobPosting":
+            continue
+        org = d.get("hiringOrganization") if isinstance(d.get("hiringOrganization"), dict) else {}
+        locs = d.get("jobLocation") or []
+        locs = [locs] if isinstance(locs, dict) else locs
+        places, countries = [], set()
+        for loc in locs:
+            a = (loc or {}).get("address") or {}
+            if a.get("addressCountry"):
+                countries.add(str(a["addressCountry"]).upper())
+            place = ", ".join(x for x in (a.get("addressLocality"), a.get("addressRegion")) if x)
+            if place:
+                places.append(place)
+        desc = strip_html(html.unescape(d.get("description") or ""))
+        desc = re.sub(r"^\s*null\s*", "", desc)
+        return {"title": d.get("title"), "company": org.get("name"), "location": "; ".join(places),
+                "countries": sorted(countries), "published": (d.get("datePosted") or "")[:10] or None,
+                "description": desc, "cached_at": TODAY}
+    return None
+
+
+def scan_xing(details_cache):
+    cfg = CFG.get("xing") or {}
+    if not cfg.get("enabled", True):
+        return []
+    terms = cfg.get("terms") or (CFG.get("jobspy") or {}).get("terms", [])
+    cutoff = (NOW - dt.timedelta(days=int(cfg.get("max_age_days", 14)))).date().isoformat()
+    max_details = int(cfg.get("max_details", 150))
+    st = {"searches": 0, "search_failed": 0, "cards": 0, "unique": 0, "title_dropped": 0, "details_read": 0,
+          "details_cached": 0, "details_failed": 0, "abroad_dropped": 0, "old_dropped": 0, "no_pv_bess_dropped": 0, "kept": 0}
+    found, fails = {}, 0
+    for term in terms:
+        if fails >= 3:
+            err("XING: Suche dreimal hintereinander ohne Antwort — abgebrochen")
+            break
+        page = xing_get("https://www.xing.com/jobs/search?" + urlencode({"keywords": term, "location": cfg.get("location", "Deutschland")}))
+        st["searches"] += 1
+        if not page:
+            st["search_failed"] += 1
+            fails += 1
+            time.sleep(5)
+            continue
+        fails = 0
+        for c in xing_cards(page):
+            st["cards"] += 1
+            if c["id"] in found:
+                if term not in found[c["id"]]["terms"]:
+                    found[c["id"]]["terms"].append(term)
+            else:
+                found[c["id"]] = {**c, "terms": [term]}
+        time.sleep(random.uniform(2, 4))
+    st["unique"] = len(found)
+    out, in_row = [], 0
+    for xid, c in found.items():
+        tier = title_tier(c["title"])
+        if tier == "drop":
+            st["title_dropped"] += 1
+            continue
+        det = details_cache.get(f"xing:{xid}")
+        if det:
+            st["details_cached"] += 1
+        elif st["details_read"] + st["details_failed"] < max_details and in_row < 6:
+            det = xing_details(xing_get("https://www.xing.com" + c["path"]))
+            if det:
+                st["details_read"] += 1
+                in_row = 0
+                details_cache[f"xing:{xid}"] = det
+            else:
+                st["details_failed"] += 1
+                in_row += 1
+            time.sleep(random.uniform(1.5, 3.5))
+        det = det or {}
+        if det.get("countries") and "DE" not in det["countries"]:
+            st["abroad_dropped"] += 1
+            continue
+        if det.get("published") and det["published"] < cutoff:
+            st["old_dropped"] += 1
+            continue
+        company = det.get("company") or c["company"]
+        if det.get("description") and not INDUSTRY_STRICT.search(f"{c['title']} {company} {det['description']}"):
+            st["no_pv_bess_dropped"] += 1
+            continue
+        out.append({"id": f"xing-{xid}", "source": "XING", "title": det.get("title") or c["title"], "company": company,
+                    "location": det.get("location") or c["location"], "published": det.get("published"),
+                    "url": "https://www.xing.com" + c["path"], "title_tier": tier,
+                    "description": cut(det["description"]) if det.get("description") else None,
+                    "found_by": [f"xing: {t}" for t in c["terms"]]})
+    st["kept"] = len(out)
+    STATS["xing"] = st
+    log(f"XING: {st}")
+    return out
+
+
 # ----------------------------------------------------------------------------- SerpApi (Google for Jobs)
 
 SERP_AGG = re.compile(r"linkedin\.|indeed\.|stepstone\.|xing\.|glassdoor\.|kununu\.|jooble|jobijoba|adzuna|talent\.com|jobrapido|neuvoo|kimeta|careerjet|monster\.|jobware|joblift|bebee|trabajo\.org|kleinanzeigen|hokify|heyjobs|joblocal|studysmarter|learn4good|simplyhired|jobleads|jobtensor|womenforhire|salutemyjob|mygermanjobs|job\.fish|stellenanzeigen\.de|stellenonline|jobvector|yourfirm|jobs\.de|jobbörse|jobboerse|meinestadt|regio-jobanzeiger|rejobs|greenjobs|eejobs|solarjob|energiejobs|whatjobs|jobisjob|jobs\.ch|arbeitsagentur|ebay|facebook|google\.com|stevenagefc|jobijoba|jobsora|jooble|expertini|de\.jobted|jobted|ziprecruiter|grabjobs|workwise|campusjaeger|absolventa|gigajob|jobsuche", re.I)
@@ -1033,6 +1171,7 @@ def main():
             watch[cid] = entry
     boards = scan_atom()
     boards += scan_jobspy()
+    boards += scan_xing(details_cache)
     boards += scan_serpapi()
 
     # beobachtete Firmen: ausgeschlossene Titel (Monteure, Vertrieb, IT …) nicht in die Datei
@@ -1058,7 +1197,7 @@ def main():
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
             "watch": "beobachtete Firmen: id → {name, method, jobs[]}; jobs mit title_tier prefer haben description",
-            "boards": "eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn) und Google Jobs (SerpApi); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
+            "boards": "eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
         },
         "candidates": sorted(prefer, key=lambda r: (r.get("km") is None, r.get("km") or 0, r.get("company") or "")),
         "other": [{k: r.get(k) for k in ("refnr", "title", "company", "location", "km", "published", "url", "homeoffice", "found_by")} for r in sorted(other, key=lambda r: (r.get("km") is None, r.get("km") or 0))],
