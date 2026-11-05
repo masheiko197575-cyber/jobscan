@@ -45,6 +45,7 @@ STATS = {}
 EXCL = re.compile(CFG["title_exclude"], re.I)
 PREF = re.compile(CFG["title_prefer"], re.I)
 INDUSTRY = re.compile(CFG["industry_regex"], re.I)
+INDUSTRY_STRICT = re.compile(CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
 MAX_DESC = int(CFG.get("max_description_chars", 4000))
 
 
@@ -365,7 +366,7 @@ def scan_jobboerse(details_cache):
     keep, demoted = [], 0
     for rec in tiers["prefer"]:
         blob = " ".join(str(rec.get(k) or "") for k in ("title", "beruf", "company", "description", "employer_profile"))
-        rec["industry_match"] = bool(INDUSTRY.search(blob))
+        rec["industry_match"] = bool(INDUSTRY_STRICT.search(blob))
         if rec["industry_match"] or rec.get("description") is None:
             keep.append(rec)
         else:
@@ -711,6 +712,12 @@ def main():
             watch[cid] = entry
     boards = scan_atom()
     boards += scan_jobspy()
+
+    # beobachtete Firmen: ausgeschlossene Titel (Monteure, Vertrieb, IT …) nicht in die Datei
+    for entry in watch.values():
+        allj = entry.get("jobs") or []
+        entry["jobs_total"] = len(allj)
+        entry["jobs"] = [j for j in allj if j.get("title_tier") != "drop"]
 
     # neu / schon gesehen (nur Information; die Tabelle gleicht selbst ab)
     for rec in prefer + other:
