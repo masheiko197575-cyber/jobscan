@@ -819,7 +819,7 @@ def scan_serpapi():
             params["lrad"] = lrad
         if uds:
             params["uds"] = uds
-        tag = f"Google Jobs {label}: {q}" if label else tag
+        tag = f"Google Jobs {label}: {q}" if label else f"Google Jobs: {q}"
         d = http_get(base, params, headers=UA, tries=2, timeout=60)
         used += 1
         if not isinstance(d, dict):
