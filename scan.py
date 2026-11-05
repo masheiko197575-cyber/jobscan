@@ -785,28 +785,41 @@ def scan_serpapi():
         state.update({"last_date": TODAY, "used_today": 0, "left": left})
         save_json("serp-log.json", state)
         return []
-    per_day = int(cfg.get("per_day", 7))
-    if left is not None:
-        per_day = max(0, min(per_day, int(left) - reserve))
-    queries = cfg.get("queries") or []
-    if not queries or per_day <= 0:
-        return []
+    # Suchläufe: bundesweit und lokal (Stuttgart + Umkreis), Abfragen rotieren tageweise;
+    # solange viel Guthaben da ist (Bonus-Suchen), doppelt so viele pro Tag
+    passes = cfg.get("passes") or [{"label": "", "location": cfg.get("location"), "queries": cfg.get("queries") or [], "per_day": int(cfg.get("per_day", 7))}]
+    boost = 2 if (left is not None and int(left) > int(cfg.get("boost_above", 400))) else 1
+    budget = (int(left) - reserve) if left is not None else 10 ** 6
     doy = NOW.timetuple().tm_yday
-    start = (doy * per_day) % len(queries)
-    todays = [queries[(start + i) % len(queries)] for i in range(min(per_day, len(queries)))]
+    plan = []  # (label, location, lrad, query)
+    for p in passes:
+        qs = p.get("queries") or []
+        n = min(len(qs), int(p.get("per_day", 5)) * boost)
+        if not qs or n <= 0:
+            continue
+        start = (doy * n) % len(qs)
+        for i in range(n):
+            plan.append((p.get("label") or "", p.get("location"), p.get("lrad"), qs[(start + i) % len(qs)]))
+    plan = plan[:max(0, budget)]
+    if not plan:
+        return []
+    todays = [f"{lab}: {q}" if lab else q for lab, _, _, q in plan]
     uds = state.get("uds_3days")
     common = {"engine": "google_jobs", "api_key": key, "gl": cfg.get("gl", "de"), "hl": cfg.get("hl", "de"),
               "google_domain": cfg.get("google_domain", "google.de")}
-    if cfg.get("location"):
-        common["location"] = cfg["location"]
     out = {}
     dup_index = {}
     used = 0
     stale_hits = 0
-    for q in todays:
+    for label, location, lrad, q in plan:
         params = dict(common, q=q)
+        if location:
+            params["location"] = location
+        if lrad:
+            params["lrad"] = lrad
         if uds:
             params["uds"] = uds
+        tag = f"Google Jobs {label}: {q}" if label else tag
         d = http_get(base, params, headers=UA, tries=2, timeout=60)
         used += 1
         if not isinstance(d, dict):
@@ -856,8 +869,8 @@ def scan_serpapi():
             jid = j.get("job_id") or f"{title}|{j.get('company_name')}"
             key_id = "serp-" + hashlib.sha1(str(jid).encode("utf-8")).hexdigest()[:16]
             if key_id in out:
-                if f"Google Jobs: {q}" not in out[key_id]["found_by"]:
-                    out[key_id]["found_by"].append(f"Google Jobs: {q}")
+                if tag not in out[key_id]["found_by"]:
+                    out[key_id]["found_by"].append(tag)
                 continue
             tier = title_tier(title)
             det = j.get("detected_extensions") or {}
@@ -880,8 +893,8 @@ def scan_serpapi():
                 twin["apply_links"].extend({"title": a.get("title"), "link": a.get("link")} for a in links if a.get("link") not in have)
                 twin["apply_links"] = twin["apply_links"][:8]
                 twin["url"] = _best_link([{"title": a.get("title"), "link": a.get("link")} for a in twin["apply_links"]], company).get("link") or twin["url"]
-                if f"Google Jobs: {q}" not in twin["found_by"]:
-                    twin["found_by"].append(f"Google Jobs: {q}")
+                if tag not in twin["found_by"]:
+                    twin["found_by"].append(tag)
                 if not twin.get("published") and posted:
                     twin["published"] = posted
                 continue
@@ -904,7 +917,7 @@ def scan_serpapi():
                 "description": cut(desc) if desc else None,
                 "highlights": [{"title": h.get("title"), "items": (h.get("items") or [])[:12]} for h in (j.get("job_highlights") or []) if isinstance(h, dict)][:4],
                 "title_tier": tier,
-                "found_by": [f"Google Jobs: {q}"],
+                "found_by": [tag],
             }
             dup_index[dup_key] = out[key_id]
         if uds and jobs and old == len(jobs):
@@ -914,7 +927,7 @@ def scan_serpapi():
         # Filter wirkt offenbar nicht mehr – nächstes Mal neu ermitteln
         state.pop("uds_3days", None)
         err("SerpApi: Datumsfilter lieferte nur alte Treffer – wird neu ermittelt")
-    st.update({"used_today": used, "results": len(out), "queries": todays, "uds": bool(uds)})
+    st.update({"used_today": used, "results": len(out), "queries": todays, "uds": bool(uds), "boost": boost})
     state.update({"last_date": TODAY, "used_today": used, "left": (int(left) - used) if left is not None else None,
                   "month": TODAY[:7], "used_month": (state.get("used_month", 0) if state.get("month") == TODAY[:7] else 0) + used})
     save_json("serp-log.json", state)
