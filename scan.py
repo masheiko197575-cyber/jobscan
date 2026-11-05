@@ -18,6 +18,7 @@ import datetime as dt
 import html
 import json
 import os
+import random
 import re
 import sys
 import time
@@ -666,6 +667,23 @@ def in_germany(loc):
     return bool(loc) and bool(DE_LOC.search(loc)) and not NOT_DE_LOC.search(loc)
 
 
+LI_HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
+              "Accept-Language": "de-DE,de;q=0.9,en;q=0.8"}
+
+
+def li_job_text(job_id):
+    """Text der öffentlichen LinkedIn-Stellenseite (ohne Login); None, wenn nicht lesbar (Login-Seite, 429 …)."""
+    try:
+        r = requests.get(f"https://www.linkedin.com/jobs/view/{job_id}", headers=LI_HEADERS, timeout=30)
+    except Exception:  # noqa: BLE001
+        return None
+    if r.status_code != 200 or "/jobs/view/" not in r.url:
+        return None
+    m = re.search(r'<div class="show-more-less-html__markup[^"]*"[^>]*>(.*?)</div>', r.text, re.S)
+    text = strip_html(m.group(1)) if m else ""
+    return text or None
+
+
 def scan_jobspy():
     cfg = CFG.get("jobspy") or {}
     if not cfg.get("enabled", True):
@@ -728,11 +746,41 @@ def scan_jobspy():
                     "found_by": [f"{site}: {term}"],
                 }
             time.sleep(2)
+    # LinkedIn gibt in der Suche keinen Text: Stellenseite lesen und Stellen ohne PV/BESS im Text verwerfen
+    # (wie bei der Jobbörse). Seite nicht lesbar → Stelle bleibt ohne Text, wie bisher.
+    det = {"read": 0, "unreadable": 0, "no_pv_bess_dropped": 0}
+    li_max = int(cfg.get("linkedin_details_max", 150))
+    in_row = 0
+    for url, rec in list(out.items()):
+        if rec["source"] == "Indeed" and rec.get("description"):
+            if not INDUSTRY_STRICT.search(f"{rec['title']} {rec['company']} {rec['description']}"):
+                det["no_pv_bess_dropped"] += 1
+                del out[url]
+            continue
+        if rec["source"] != "LinkedIn" or rec.get("description"):
+            continue
+        if det["read"] + det["unreadable"] >= li_max or in_row >= 6:
+            continue
+        m = re.search(r"/jobs/view/(?:[^/?#]*-)?(\d+)", url)
+        text = li_job_text(m.group(1)) if m else None
+        if text is None:
+            det["unreadable"] += 1
+            in_row += 1
+            time.sleep(6)
+            continue
+        in_row = 0
+        det["read"] += 1
+        if not INDUSTRY_STRICT.search(f"{rec['title']} {rec['company']} {text}"):
+            det["no_pv_bess_dropped"] += 1
+            del out[url]
+        else:
+            rec["description"] = cut(text)
+        time.sleep(random.uniform(1.5, 3.5))
     kept = {}
     for rec in out.values():
         kept[rec["source"]] = kept.get(rec["source"], 0) + 1
-    STATS["jobspy"] = {"kept": kept, "abroad_dropped": abroad}
-    log(f"JobSpy: {len(out)} Treffer {kept}, außerhalb Deutschlands verworfen: {abroad}")
+    STATS["jobspy"] = {"kept": kept, "abroad_dropped": abroad, "texts": det}
+    log(f"JobSpy: {len(out)} Treffer {kept}, außerhalb Deutschlands verworfen: {abroad}, Texte: {det}")
     return list(out.values())
 
 
