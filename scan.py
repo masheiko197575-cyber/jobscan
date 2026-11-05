@@ -764,10 +764,13 @@ def scan_serpapi():
     if not cfg.get("enabled", True) or not key:
         log("SerpApi: kein Schlüssel (Secret SERPAPI_KEY) – übersprungen")
         return []
+    cache = load_json("serp-results.json", {})
     if state.get("last_date") == TODAY and not os.environ.get("SERPAPI_FORCE"):
-        log(f"SerpApi: heute schon gelaufen ({state.get('used_today')} Suchen) – übersprungen")
-        st.update({"skipped": "already today", "left": state.get("left")})
-        return []
+        if cache.get("date") == TODAY and isinstance(cache.get("items"), list):
+            log(f"SerpApi: heute schon gelaufen ({state.get('used_today')} Suchen) – {len(cache['items'])} Treffer aus dem Tages-Cache")
+            st.update({"skipped": "already today", "left": state.get("left"), "results": len(cache["items"]), "from_cache": True})
+            return cache["items"]
+        log("SerpApi: heute schon gelaufen, aber kein Tages-Cache – Suche wird wiederholt (gleiche Abfragen sind bei SerpApi 1 h lang kostenlos)")
     base = "https://serpapi.com/search.json"
     # Kontostand (kostenlos)
     acct = http_get("https://serpapi.com/account.json", {"api_key": key}, headers=UA, tries=2)
@@ -900,6 +903,7 @@ def scan_serpapi():
     state.update({"last_date": TODAY, "used_today": used, "left": (int(left) - used) if left is not None else None,
                   "month": TODAY[:7], "used_month": (state.get("used_month", 0) if state.get("month") == TODAY[:7] else 0) + used})
     save_json("serp-log.json", state)
+    save_json("serp-results.json", {"date": TODAY, "items": list(out.values())})
     log(f"SerpApi: {used} Suchen, {len(out)} Treffer, übrig ≈ {state.get('left')}")
     return list(out.values())
 
