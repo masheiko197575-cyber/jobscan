@@ -30,8 +30,10 @@ os.makedirs(DATA, exist_ok=True)
 
 CFG = json.load(open(os.path.join(ROOT, "config.json"), encoding="utf-8"))
 
-API = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4"
-AA_HEADERS = {"X-API-Key": "jobboerse-jobsuche", "User-Agent": "jobscan/1.0 (+github)"}
+API = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc"  # Suche: v6, Details: v4 (v4-Suche liefert seit 2026 nur 403)
+AA_HEADERS = {"X-API-Key": "jobboerse-jobsuche", "Accept": "application/json",
+              "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"}
+HOME = (48.8975, 9.1916)  # Ludwigsburg
 UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) jobscan/1.0"}
 
 NOW = dt.datetime.now(dt.timezone.utc)
@@ -110,6 +112,9 @@ def http_get(url, params=None, headers=None, tries=3, as_json=True, timeout=40):
                 continue
             if r.status_code in (404, 410):
                 return None
+            if r.status_code in (401, 403):
+                last = f"HTTP {r.status_code} {r.text[:80]}"
+                break
             if r.status_code >= 500:
                 last = f"HTTP {r.status_code}"
                 time.sleep(4)
@@ -153,12 +158,15 @@ def aa_search(was, days, extra=None, max_pages=12, size=100):
         params = {"was": was, "angebotsart": 1, "veroeffentlichtseit": days, "size": size, "page": page}
         if extra:
             params.update(extra)
-        d = http_get(f"{API}/jobs", params, AA_HEADERS)
+        d = http_get(f"{API}/v6/jobs", params, AA_HEADERS)
         if not d:
             break
-        items = d.get("stellenangebote") or []
+        items = d.get("ergebnisliste") or d.get("stellenangebote") or []
         if total is None:
             total = d.get("maxErgebnisse")
+            if "sample_item_keys" not in STATS and items and isinstance(items[0], dict):
+                STATS["sample_item_keys"] = sorted(items[0].keys())
+        items = [it for it in items if isinstance(it, dict)]
         if not items:
             break
         out.extend(items)
@@ -171,58 +179,106 @@ def aa_search(was, days, extra=None, max_pages=12, size=100):
     return out, total
 
 
-def aa_norm(it, found_by):
-    ort = it.get("arbeitsort") or {}
-    loc = ", ".join(x for x in [ort.get("plz"), ort.get("ort")] if x)
-    if ort.get("region") and ort.get("region") not in loc:
-        loc = f"{loc} ({ort.get('region')})" if loc else ort.get("region")
-    km = ort.get("entfernung")
+def _km(lat, lon):
     try:
-        km = round(float(km)) if km not in (None, "") else None
+        lat, lon = float(lat), float(lon)
     except Exception:  # noqa: BLE001
-        km = None
-    refnr = it.get("refnr") or ""
+        return None
+    import math
+    p = math.pi / 180
+    a = 0.5 - math.cos((lat - HOME[0]) * p) / 2 + math.cos(HOME[0] * p) * math.cos(lat * p) * (1 - math.cos((lon - HOME[1]) * p)) / 2
+    return round(12742 * math.asin(math.sqrt(a)))
+
+
+def aa_norm(it, found_by):
+    # v6-Form (ergebnisliste) und alte v4-Form
+    loks = it.get("stellenlokationen") or []
+    lok = loks[0] if loks and isinstance(loks[0], dict) else {}
+    adr = lok.get("adresse") or {}
+    ort = it.get("arbeitsort") or {}
+    plz = adr.get("plz") or ort.get("plz")
+    stadt = adr.get("ort") or ort.get("ort")
+    region = adr.get("region") or ort.get("region")
+    loc = ", ".join(x for x in [plz, stadt] if x)
+    if region and region not in loc:
+        loc = f"{loc} ({region})" if loc else region
+    km = _km(lok.get("breite"), lok.get("laenge"))
+    if km is None:
+        km = _km((lok.get("koordinaten") or {}).get("lat"), (lok.get("koordinaten") or {}).get("lon"))
+    if km is None:
+        km = ort.get("entfernung")
+        try:
+            km = round(float(km)) if km not in (None, "") else None
+        except Exception:  # noqa: BLE001
+            km = None
+    refnr = it.get("referenznummer") or it.get("refnr") or ""
+    vz = it.get("veroeffentlichungszeitraum") or {}
+    published = (vz.get("von") if isinstance(vz, dict) else None) or it.get("aktuelleVeroeffentlichungsdatum") or ""
+    gv, gb, fest = it.get("gehaltsspanneVon"), it.get("gehaltsspanneBis"), it.get("festgehalt")
+    salary = None
+    if gv or gb or fest:
+        salary = f"{gv or ''}–{gb or ''}".strip("–") if (gv or gb) else str(fest)
+        if it.get("verguetungsangabe"):
+            salary = f"{salary} {it.get('verguetungsangabe')}"
+    other_locs = [", ".join(x for x in [(l.get("adresse") or {}).get("plz"), (l.get("adresse") or {}).get("ort")] if x) for l in loks[1:] if isinstance(l, dict)]
     return {
         "id": refnr,
         "refnr": refnr,
         "source": "Jobbörse",
-        "title": (it.get("titel") or it.get("beruf") or "").strip(),
-        "beruf": it.get("beruf"),
-        "company": (it.get("arbeitgeber") or "").strip(),
+        "title": (it.get("stellenangebotsTitel") or it.get("titel") or it.get("hauptberuf") or it.get("beruf") or "").strip(),
+        "beruf": it.get("hauptberuf") or it.get("beruf"),
+        "company": (it.get("firma") or it.get("arbeitgeber") or "").strip(),
         "location": loc,
+        "other_locations": [x for x in other_locs if x][:5],
         "km": km,
         "url": f"https://www.arbeitsagentur.de/jobsuche/jobdetail/{refnr}" if refnr else None,
-        "published": (it.get("aktuelleVeroeffentlichungsdatum") or "")[:10] or None,
-        "modified": it.get("modifikationsTimestamp"),
+        "published": published[:10] or None,
+        "first_published": (it.get("datumErsteVeroeffentlichung") or "")[:10] or None,
+        "modified": it.get("aenderungsdatum") or it.get("modifikationsTimestamp"),
         "start": it.get("eintrittsdatum"),
+        "fulltime": it.get("arbeitszeitVollzeit"),
+        "parttime": it.get("arbeitszeitTeilzeit"),
+        "contract": it.get("vertragsdauer"),
+        "salary_listed": salary,
+        "external_url": it.get("externeURL") or it.get("externeUrl"),
+        "partner": it.get("allianzpartnerName"),
         "found_by": [found_by],
-        "homeoffice": False,
+        "homeoffice": bool(it.get("homeofficemoeglich")),
     }
 
 
 def aa_details(refnr):
     enc = base64.b64encode(refnr.encode("utf-8")).decode("ascii")
-    d = http_get(f"{API}/jobdetails/{enc}", headers=AA_HEADERS)
+    d = http_get(f"{API}/v4/jobdetails/{enc}", headers=AA_HEADERS)
     if not d:
         return None
-    desc = strip_html(d.get("stellenbeschreibung") or "")
-    orte = d.get("arbeitsorte") or []
-    orte_txt = "; ".join(
-        ", ".join(x for x in [o.get("plz"), o.get("ort"), o.get("region")] if x) for o in orte if isinstance(o, dict)
-    )
+    if "sample_detail_keys" not in STATS:
+        STATS["sample_detail_keys"] = sorted(d.keys())[:60]
+    desc = strip_html(d.get("stellenangebotsBeschreibung") or d.get("stellenbeschreibung") or "")
+    orte = d.get("arbeitsorte") or d.get("stellenlokationen") or []
+    parts = []
+    for o in orte:
+        if not isinstance(o, dict):
+            continue
+        a = o.get("adresse") if isinstance(o.get("adresse"), dict) else o
+        parts.append(", ".join(x for x in [a.get("plz"), a.get("ort"), a.get("region")] if x))
+    orte_txt = "; ".join(p for p in parts if p)
     azm = d.get("arbeitszeitmodelle")
+    azm_txt = "; ".join(azm) if isinstance(azm, list) else azm
+    flags = [k for k in ("arbeitszeitVollzeit", "arbeitszeitTeilzeit", "arbeitszeitSchicht", "arbeitszeitHeimarbeit", "arbeitszeitMinijob") if d.get(k)]
     info = {
         "description": cut(desc),
-        "worktime": "; ".join(azm) if isinstance(azm, list) else azm,
-        "fixed_term": d.get("befristung"),
-        "salary": d.get("verguetung") or d.get("vergütung"),
+        "worktime": azm_txt or (", ".join(flags) if flags else None),
+        "fixed_term": d.get("befristung") or d.get("vertragsdauer"),
+        "salary": d.get("verguetung") or d.get("vergütung") or d.get("festgehalt") or (f"{d.get('gehaltsspanneVon') or ''}–{d.get('gehaltsspanneBis') or ''}".strip("–") if (d.get("gehaltsspanneVon") or d.get("gehaltsspanneBis")) else None),
         "locations": orte_txt or None,
-        "external_url": d.get("externeUrl") or d.get("allianzpartnerUrl"),
+        "external_url": d.get("externeUrl") or d.get("externeURL") or d.get("allianzpartnerUrl"),
+        "partner": d.get("allianzpartnerName"),
         "employer_profile": (d.get("arbeitgeberdarstellung") and cut(strip_html(d.get("arbeitgeberdarstellung")), 800)) or None,
-        "published": (d.get("aktuelleVeroeffentlichungsdatum") or "")[:10] or None,
-        "first_published": (d.get("ersteVeroeffentlichungsdatum") or "")[:10] or None,
-        "zeitarbeit": d.get("istZeitarbeit"),
-        "homeoffice_hint": bool(azm and any("HEIM" in str(a).upper() or "TELE" in str(a).upper() for a in azm)),
+        "published": (d.get("aktuelleVeroeffentlichungsdatum") or ((d.get("veroeffentlichungszeitraum") or {}).get("von") if isinstance(d.get("veroeffentlichungszeitraum"), dict) else "") or "")[:10] or None,
+        "first_published": (d.get("ersteVeroeffentlichungsdatum") or d.get("datumErsteVeroeffentlichung") or "")[:10] or None,
+        "zeitarbeit": d.get("istArbeitnehmerUeberlassung") if d.get("istArbeitnehmerUeberlassung") is not None else d.get("istZeitarbeit"),
+        "homeoffice_hint": bool(d.get("homeofficemoeglich") or d.get("arbeitszeitHeimarbeit") or (azm and any("HEIM" in str(a).upper() or "TELE" in str(a).upper() for a in azm))),
     }
     return info
 
@@ -259,16 +315,15 @@ def scan_jobboerse(details_cache):
         per_query[f"рядом: {t}"] = total if total is not None else len(items)
         add(items, f"Jobbörse рядом: {t}")
         time.sleep(0.4)
-        items, total = aa_search(t, days, {"arbeitszeit": "ho"})
-        per_query[f"удалённо: {t}"] = total if total is not None else len(items)
-        add(items, f"Jobbörse удалённо: {t}", "homeoffice")
-        time.sleep(0.4)
+        # v6 kennt arbeitszeit=ho nicht mehr: Homeoffice kommt aus dem Flag homeofficemoeglich der DE-Suche
         items, total = aa_search(t, days)
         per_query[f"DE: {t}"] = total if total is not None else len(items)
         add(items, f"Jobbörse DE: {t}")
+        ho = [it for it in items if it.get("homeofficemoeglich")]
+        per_query[f"удалённо: {t}"] = len(ho)
+        add(ho, f"Jobbörse удалённо: {t}", "homeoffice")
         time.sleep(0.4)
         log(f"Jobbörse «{t}»: insgesamt {len(jobs)} eindeutige")
-
     STATS["jobboerse_per_query"] = per_query
     STATS["jobboerse_unique"] = len(jobs)
 
@@ -297,7 +352,7 @@ def scan_jobboerse(details_cache):
                 c["cached_at"] = TODAY
                 details_cache[rec["refnr"]] = c
         if c:
-            rec.update({k: v for k, v in c.items() if k != "cached_at"})
+            rec.update({k: v for k, v in c.items() if k != "cached_at" and v is not None})
             if c.get("homeoffice_hint"):
                 rec["homeoffice"] = True
         else:
@@ -315,7 +370,7 @@ def scan_employers(days, details_cache):
         items, total = aa_search(q, days, max_pages=4)
         hits = []
         for it in items:
-            emp = (it.get("arbeitgeber") or "").lower()
+            emp = (it.get("firma") or it.get("arbeitgeber") or "").lower()
             if match in emp:
                 rec = aa_norm(it, f"Компании под наблюдением: {e['name']}")
                 rec["title_tier"] = title_tier(rec["title"])
@@ -328,7 +383,7 @@ def scan_employers(days, details_cache):
                             c["cached_at"] = TODAY
                             details_cache[rec["refnr"]] = c
                     if c:
-                        rec.update({k: v for k, v in c.items() if k != "cached_at"})
+                        rec.update({k: v for k, v in c.items() if k != "cached_at" and v is not None})
                 hits.append(rec)
         out[e["id"]] = {"name": e["name"], "method": "jobboerse", "query": q, "total_hits": total, "jobs": hits}
         time.sleep(0.5)
