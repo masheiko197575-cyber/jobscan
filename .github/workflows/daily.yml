@@ -38,6 +38,8 @@ jobs:
           git fetch --depth 1 origin data && git checkout origin/data -- data || echo "noch kein data-Branch"
           git reset -q
       - name: Scan
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scan.py
       - name: Ergebnis in Branch data schreiben
         if: always()

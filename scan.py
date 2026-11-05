@@ -13,6 +13,7 @@ Ergebnis: data/today.json (+ data/seen.json, data/details.json, data/run-log.jso
 Keine Zugangsdaten, keine personenbezogenen Daten.
 """
 import base64
+import hashlib
 import datetime as dt
 import html
 import json
@@ -49,13 +50,25 @@ INDUSTRY_STRICT = re.compile(CFG.get("industry_strict_regex") or CFG["industry_r
 MAX_DESC = int(CFG.get("max_description_chars", 4000))
 
 
+SECRETS = []  # Werte, die nie in Log oder Dateien landen dürfen (API-Schlüssel)
+
+
+def redact(s):
+    s = str(s)
+    for sec in SECRETS:
+        if sec:
+            s = s.replace(sec, "***")
+    return s
+
+
 def log(*a):
-    print(f"[{int(time.time() - START):4d}s]", *a, flush=True)
+    print(f"[{int(time.time() - START):4d}s]", *(redact(x) for x in a), flush=True)
 
 
 def err(msg):
-    ERRORS.append(str(msg)[:300])
-    log("ERROR", str(msg)[:300])
+    msg = redact(msg)[:300]
+    ERRORS.append(msg)
+    log("ERROR", msg)
 
 
 def load_json(name, default):
@@ -693,6 +706,164 @@ def scan_jobspy():
     return list(out.values())
 
 
+
+# ----------------------------------------------------------------------------- SerpApi (Google for Jobs)
+
+SERP_AGG = re.compile(r"linkedin\.|indeed\.|stepstone\.|xing\.|glassdoor\.|kununu\.|jooble\.|jobijoba|adzuna|talent\.com|jobrapido|jooble|neuvoo|kimeta|yoojo|careerjet|monster\.|jobware|joblift|bebee|trabajo\.org|kleinanzeigen|jobs\.de|hokify|heyjobs|joblocal", re.I)
+
+
+def _rel_date(txt):
+    """'vor 3 Tagen' / '3 days ago' / 'vor 5 Stunden' → ISO-Datum; None wenn unbekannt."""
+    if not txt:
+        return None
+    t = str(txt).lower()
+    m = re.search(r"(\d+)\s*(tag|day|stunde|hour|minute|woche|week|monat|month)", t)
+    if not m:
+        if "heute" in t or "today" in t or "gerade" in t or "just" in t:
+            return TODAY
+        if "gestern" in t or "yesterday" in t:
+            return (NOW - dt.timedelta(days=1)).date().isoformat()
+        return None
+    n, unit = int(m.group(1)), m.group(2)
+    days = {"tag": n, "day": n, "stunde": 0, "hour": 0, "minute": 0, "woche": 7 * n, "week": 7 * n, "monat": 30 * n, "month": 30 * n}[unit]
+    return (NOW - dt.timedelta(days=days)).date().isoformat()
+
+
+def scan_serpapi():
+    """Google for Jobs über SerpApi (Free-Plan: 250 Suchen/Monat). Pro Tag höchstens `per_day` Suchen,
+    höchstens einmal am Tag (Pushes lösen den Workflow mehrfach aus), Abfragen rotieren über die Tage."""
+    cfg = CFG.get("serpapi") or {}
+    key = os.environ.get("SERPAPI_KEY", "").strip()
+    state = load_json("serp-log.json", {})
+    st = {"configured": bool(key), "used_today": 0, "results": 0}
+    STATS["serpapi"] = st
+    if key:
+        SECRETS.append(key)
+    if not cfg.get("enabled", True) or not key:
+        log("SerpApi: kein Schlüssel (Secret SERPAPI_KEY) – übersprungen")
+        return []
+    if state.get("last_date") == TODAY and not os.environ.get("SERPAPI_FORCE"):
+        log(f"SerpApi: heute schon gelaufen ({state.get('used_today')} Suchen) – übersprungen")
+        st.update({"skipped": "already today", "left": state.get("left")})
+        return []
+    base = "https://serpapi.com/search.json"
+    # Kontostand (kostenlos)
+    acct = http_get("https://serpapi.com/account.json", {"api_key": key}, headers=UA, tries=2)
+    left = None
+    if isinstance(acct, dict):
+        left = acct.get("total_searches_left", acct.get("plan_searches_left"))
+        st["left"] = left
+        st["plan"] = acct.get("plan_name")
+    reserve = int(cfg.get("reserve", 10))
+    if left is not None and int(left) <= reserve:
+        err(f"SerpApi: nur noch {left} Suchen übrig – übersprungen")
+        state.update({"last_date": TODAY, "used_today": 0, "left": left})
+        save_json("serp-log.json", state)
+        return []
+    per_day = int(cfg.get("per_day", 7))
+    if left is not None:
+        per_day = max(0, min(per_day, int(left) - reserve))
+    queries = cfg.get("queries") or []
+    if not queries or per_day <= 0:
+        return []
+    doy = NOW.timetuple().tm_yday
+    start = (doy * per_day) % len(queries)
+    todays = [queries[(start + i) % len(queries)] for i in range(min(per_day, len(queries)))]
+    uds = state.get("uds_3days")
+    common = {"engine": "google_jobs", "api_key": key, "gl": cfg.get("gl", "de"), "hl": cfg.get("hl", "de"),
+              "google_domain": cfg.get("google_domain", "google.de")}
+    if cfg.get("location"):
+        common["location"] = cfg["location"]
+    out = {}
+    used = 0
+    stale_hits = 0
+    for q in todays:
+        params = dict(common, q=q)
+        if uds:
+            params["uds"] = uds
+        d = http_get(base, params, headers=UA, tries=2, timeout=60)
+        used += 1
+        if not isinstance(d, dict):
+            continue
+        if d.get("error") and not d.get("jobs_results"):
+            # "Google hasn't returned any results" ist kein Fehler – nur leer
+            if "returned any results" not in str(d.get("error")):
+                err(f"SerpApi «{q}»: {str(d.get('error'))[:120]}")
+            continue
+        # Datumsfilter (uds) einmalig aus den Filtern merken: "Letzte 3 Tage" / "Last 3 days"
+        if not uds:
+            for f in d.get("filters") or []:
+                for o in (f.get("options") or []):
+                    nm = str(o.get("name") or "")
+                    if re.search(r"\b3\b", nm) and o.get("uds"):
+                        uds = o["uds"]
+                        state["uds_3days"] = uds
+                        state["uds_name"] = nm
+                        log(f"SerpApi: Datumsfilter «{nm}» gemerkt")
+                        break
+                if uds:
+                    break
+        jobs = d.get("jobs_results") or []
+        old = 0
+        for j in jobs:
+            if not isinstance(j, dict):
+                continue
+            title = (j.get("title") or "").strip()
+            jid = j.get("job_id") or f"{title}|{j.get('company_name')}"
+            key_id = "serp-" + hashlib.sha1(str(jid).encode("utf-8")).hexdigest()[:16]
+            if key_id in out:
+                if f"Google Jobs: {q}" not in out[key_id]["found_by"]:
+                    out[key_id]["found_by"].append(f"Google Jobs: {q}")
+                continue
+            tier = title_tier(title)
+            det = j.get("detected_extensions") or {}
+            posted = _rel_date(det.get("posted_at") or " ".join(j.get("extensions") or []))
+            if posted and posted < (NOW - dt.timedelta(days=int(cfg.get("max_age_days", 10)))).date().isoformat():
+                old += 1
+                continue
+            if tier == "drop":
+                continue
+            desc = strip_html(j.get("description") or "")
+            if not INDUSTRY.search(title + " " + desc[:3000]):
+                continue
+            links = [a for a in (j.get("apply_options") or []) if isinstance(a, dict) and a.get("link")]
+            direct = [a for a in links if not SERP_AGG.search(a.get("link", "") + " " + str(a.get("title", "")))]
+            best = (direct or links or [{}])[0]
+            out[key_id] = {
+                "id": key_id,
+                "source": "Google Jobs",
+                "via": j.get("via"),
+                "title": title,
+                "company": (j.get("company_name") or "").strip(),
+                "location": j.get("location"),
+                "published": posted,
+                "posted_at": det.get("posted_at"),
+                "schedule": det.get("schedule_type"),
+                "work_from_home": det.get("work_from_home"),
+                "salary": det.get("salary"),
+                "url": best.get("link") or j.get("share_link"),
+                "apply_links": [{"title": a.get("title"), "link": a.get("link")} for a in links[:6]],
+                "share_link": j.get("share_link"),
+                "description": cut(desc) if desc else None,
+                "highlights": [{"title": h.get("title"), "items": (h.get("items") or [])[:12]} for h in (j.get("job_highlights") or []) if isinstance(h, dict)][:4],
+                "title_tier": tier,
+                "found_by": [f"Google Jobs: {q}"],
+            }
+        if uds and jobs and old == len(jobs):
+            stale_hits += 1
+        time.sleep(1.5)
+    if uds and stale_hits and stale_hits == used:
+        # Filter wirkt offenbar nicht mehr – nächstes Mal neu ermitteln
+        state.pop("uds_3days", None)
+        err("SerpApi: Datumsfilter lieferte nur alte Treffer – wird neu ermittelt")
+    st.update({"used_today": used, "results": len(out), "queries": todays, "uds": bool(uds)})
+    state.update({"last_date": TODAY, "used_today": used, "left": (int(left) - used) if left is not None else None,
+                  "month": TODAY[:7], "used_month": (state.get("used_month", 0) if state.get("month") == TODAY[:7] else 0) + used})
+    save_json("serp-log.json", state)
+    log(f"SerpApi: {used} Suchen, {len(out)} Treffer, übrig ≈ {state.get('left')}")
+    return list(out.values())
+
+
 # ----------------------------------------------------------------------------- main
 
 def main():
@@ -712,6 +883,7 @@ def main():
             watch[cid] = entry
     boards = scan_atom()
     boards += scan_jobspy()
+    boards += scan_serpapi()
 
     # beobachtete Firmen: ausgeschlossene Titel (Monteure, Vertrieb, IT …) nicht in die Datei
     for entry in watch.values():
@@ -736,7 +908,7 @@ def main():
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
             "watch": "beobachtete Firmen: id → {name, method, jobs[]}; jobs mit title_tier prefer haben description",
-            "boards": "eejobs/greenjobs (Atom) und JobSpy (Indeed/LinkedIn), nur Titel die nicht ausgeschlossen sind",
+            "boards": "eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn) und Google Jobs (SerpApi, mit description), nur Titel die nicht ausgeschlossen sind",
         },
         "candidates": sorted(prefer, key=lambda r: (r.get("km") is None, r.get("km") or 0, r.get("company") or "")),
         "other": [{k: r.get(k) for k in ("refnr", "title", "company", "location", "km", "published", "url", "homeoffice", "found_by")} for r in sorted(other, key=lambda r: (r.get("km") is None, r.get("km") or 0))],
