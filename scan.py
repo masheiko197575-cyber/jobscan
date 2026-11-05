@@ -820,12 +820,27 @@ def scan_serpapi():
             st["filters_seen"] = [{"name": f.get("name"), "options": [o.get("name") for o in (f.get("options") or [])][:8]} for f in (d.get("filters") or []) if isinstance(f, dict)][:8]
             st["response_keys"] = sorted(k for k in d.keys() if not k.startswith("search_"))
         # Datumsfilter (uds) einmalig aus den Filtern merken: "Letzte 3 Tage" / "Last 3 days"
+        # (der Wert steht je nach Layout in `uds` oder nur im serpapi_link / link als Parameter uds=)
         if not uds:
+            from urllib.parse import unquote, parse_qs, urlparse
             for f in d.get("filters") or []:
                 for o in (f.get("options") or []):
+                    if not isinstance(o, dict):
+                        continue
                     nm = str(o.get("name") or "")
-                    if re.search(r"\b3\b", nm) and o.get("uds"):
-                        uds = o["uds"]
+                    if not re.search(r"\b3\b", nm):
+                        continue
+                    if "filter_option_keys" not in st:
+                        st["filter_option_keys"] = sorted(o.keys())
+                    val = o.get("uds")
+                    if not val:
+                        for lk in (o.get("serpapi_link"), o.get("link")):
+                            if lk and "uds=" in str(lk):
+                                val = (parse_qs(urlparse(str(lk)).query).get("uds") or [None])[0]
+                                if val:
+                                    break
+                    if val:
+                        uds = unquote(val) if "%" in val else val
                         state["uds_3days"] = uds
                         state["uds_name"] = nm
                         log(f"SerpApi: Datumsfilter «{nm}» gemerkt")
