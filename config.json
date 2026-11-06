@@ -197,7 +197,21 @@
     {"id": "uhl-windkraft", "name": "Uhl Windkraft", "query": "Uhl Windkraft", "match": "uhl windkraft"},
     {"id": "numbat", "name": "Numbat", "query": "Numbat", "match": "numbat"},
     {"id": "viessmann", "name": "Viessmann", "query": "Viessmann", "match": "viessmann"},
-    {"id": "thermondo", "name": "thermondo", "query": "thermondo", "match": "thermondo"}
+    {"id": "thermondo", "name": "thermondo", "query": "thermondo", "match": "thermondo"},
+    {"id": "partheymueller-management", "name": "Partheymüller Management", "query": "Partheymüller", "match": "partheymüller"},
+    {"id": "vg-enkenbach-alsenborn", "name": "VG Enkenbach-Alsenborn", "query": "Verbandsgemeindeverwaltung Enkenbach-Alsenborn", "match": "enkenbach-alsenborn"},
+    {"id": "mehr-ampere", "name": "Mehr Ampere", "query": "Mehr Ampere", "match": "mehr ampere"},
+    {"id": "novontech", "name": "NOVONTECH", "query": "NOVONTECH", "match": "novontech"},
+    {"id": "p-p-energiesysteme", "name": "P&P Energiesysteme", "query": "P&P Energiesysteme", "match": "p&p energiesysteme"},
+    {"id": "sonnenschmied", "name": "Sonnenschmied", "query": "Sonnenschmied", "match": "sonnenschmied"},
+    {"id": "refu-elektronik", "name": "REFU Elektronik", "query": "REFU Elektronik", "match": "refu elektronik"},
+    {"id": "solar-energie-andresen", "name": "Solar-Energie Andresen", "query": "Solar-Energie Andresen", "match": "solar-energie andresen"},
+    {"id": "seger-elektro", "name": "Seger Elektro", "query": "Seger Elektro", "match": "seger elektro"},
+    {"id": "bima", "name": "BImA", "query": "Bundesanstalt für Immobilienaufgaben", "match": "immobilienaufgaben"},
+    {"id": "strabag-pfs", "name": "STRABAG PFS", "query": "STRABAG Property", "match": "strabag property"},
+    {"id": "tsg-deutschland", "name": "TSG Deutschland", "query": "TSG Deutschland", "match": "tsg deutschland"},
+    {"id": "kodiak", "name": "KODIAK", "query": "KODIAK", "match": "kodiak gmbh"},
+    {"id": "eneo", "name": "Eneo Solar", "query": "Eneo GmbH", "match": "eneo gmbh"}
   ],
   "personio": [
     {"id": "arteus-energy", "name": "Arteus Energy", "feed": "https://arteus-energy.jobs.personio.de/xml"},
