@@ -1380,6 +1380,12 @@ def main():
         allj = entry.get("jobs") or []
         entry["jobs_total"] = len(allj)
         entry["jobs"] = [j for j in allj if j.get("title_tier") != "drop"]
+    # Quelle nicht geladen und keine Stellen: Firma nicht in watch aufnehmen — sonst hält die Morgenaufgabe sie
+    # für erledigt und prüft sie nicht (so fielen 05.–06.11. fünf Personio-Firmen still aus).
+    failed = sorted(k for k, v in watch.items() if v.get("error") and not v.get("jobs_total"))
+    for k in failed:
+        del watch[k]
+    STATS["watch_failed"] = failed
 
     # neu / schon gesehen (nur Information; die Tabelle gleicht selbst ab)
     for rec in prefer + other:
@@ -1399,7 +1405,7 @@ def main():
         "schema": {
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
-            "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby): id → {name, method, jobs[]}; jobs mit title_tier prefer haben description; JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten)",
+            "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby): id → {name, method, jobs[]}; jobs mit title_tier prefer haben meist description (Personio über search.json ohne); JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten). Firmen, deren Quelle heute nicht lud, fehlen hier (stats.watch_failed) — selbst prüfen",
             "boards": "eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
         },
         "candidates": sorted(prefer, key=lambda r: (r.get("km") is None, r.get("km") or 0, r.get("company") or "")),
