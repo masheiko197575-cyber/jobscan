@@ -1,84 +1,66 @@
-"""Probe 4 (06.11.2026): JOIN-Firmenseiten (alle Stellen?), rejobs.org (richtige Adressen, Struktur),
-Lever/Ashby von Munich Electrification, Status alter Stellenlinks (encosa, univativ)."""
-import json, os, re, traceback
+"""Probe 5 (06.11.2026): JOIN — Seitenwechsel (?page=N) zuverlässig? öffentliche API mit gültigem pageSize?
+Aktive Stellenseite (Status, Texte, Daten)."""
+import json, os, re, time
 import requests
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "probe")
-RAW = os.path.join(OUT, "raw4")
+RAW = os.path.join(OUT, "raw5")
 os.makedirs(RAW, exist_ok=True)
 UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
       "Accept-Language": "de-DE,de;q=0.9,en;q=0.8"}
 summary = {}
 
 
-def get(name, url, save=True, **kw):
+def nd(t):
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', t, re.S)
+    if not m:
+        return {}
+    pp = json.loads(m.group(1)).get("props", {}).get("pageProps", {})
+    return pp.get("pageData") or pp.get("initialState") or {}
+
+
+def page(name, url):
     try:
-        r = requests.get(url, headers=kw.pop("headers", UA), timeout=30, allow_redirects=True, **kw)
-        t = r.text
-        info = {"url": url, "status": r.status_code, "final": r.url, "ctype": r.headers.get("content-type"), "len": len(t),
-                "server": r.headers.get("server"), "cf": r.headers.get("cf-mitigated"),
-                "title": ((re.search(r"<title[^>]*>(.*?)</title>", t, re.S | re.I) or [None, ""])[1] or "")[:150].strip(),
-                "next_data": "__NEXT_DATA__" in t, "next_f": "self.__next_f" in t,
-                "jsonld_jobposting": len(re.findall(r'"@type"\s*:\s*"JobPosting"', t)),
-                "nicht_mehr": bool(re.search(r"nicht mehr verfügbar|no longer available|archiviert", t, re.I))}
-        if save:
-            ext = "json" if "json" in (info["ctype"] or "") else "html"
-            open(os.path.join(RAW, f"{name}.{ext}"), "w", encoding="utf-8").write(t[:600000])
-            m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', t, re.S)
-            if m:
-                open(os.path.join(RAW, f"{name}.next.json"), "w", encoding="utf-8").write(m.group(1))
-        summary[name] = info
-        return r
+        r = requests.get(url, headers=UA, timeout=30)
+        d = nd(r.text)
+        j = d.get("jobs") or {}
+        summary[name] = {"status": r.status_code, "cf_cache": r.headers.get("cf-cache-status"), "age": r.headers.get("age"),
+                         "cache_control": r.headers.get("cache-control"), "pagination": j.get("pagination"),
+                         "ids": [i.get("idParam", "")[:8] for i in j.get("items") or []]}
     except Exception as ex:  # noqa: BLE001
-        summary[name] = {"url": url, "error": repr(ex)[:300]}
-        return None
+        summary[name] = {"error": repr(ex)[:200]}
 
 
-# --- JOIN
 for slug in ("axsol", "junizenergy", "encosa615", "solarize"):
-    r = get(f"join_{slug}", f"https://join.com/companies/{slug}")
-    get(f"join_{slug}_p2", f"https://join.com/companies/{slug}?page=2")
-    if r is not None:
-        t = r.text
-        ids = sorted(set(re.findall(rf'/companies/{slug}/(\d+)-', t)))
-        summary[f"join_{slug}"]["job_ids_in_html"] = ids
-        cid = re.findall(r'"companyId"\s*:\s*(\d+)', t)[:3] + re.findall(r'"company"\s*:\s*\{\s*"id"\s*:\s*(\d+)', t)[:3]
-        summary[f"join_{slug}"]["company_ids"] = cid
-        apis = sorted(set(re.findall(r'https?://[a-z0-9.-]*join\.com/api[^"\'\s<>)]*', t)))[:30]
-        summary[f"join_{slug}"]["api_urls"] = apis
-        summary[f"join_{slug}"]["api_paths"] = sorted(set(re.findall(r'["\'](/api/[^"\'\s<>]{3,120})["\']', t)))[:40]
-        for c in sorted(set(cid))[:1]:
-            for k, u in {"pub": f"https://join.com/api/public/companies/{c}/jobs?page=1&pageSize=50",
-                         "pub2": f"https://join.com/api/public/companies/{c}/jobs?locale=de-DE&page=1&pageSize=50",
-                         "jobs": f"https://join.com/api/jobs?companyId={c}&page=1&pageSize=50"}.items():
-                get(f"join_{slug}_api_{k}", u, headers={**UA, "Accept": "application/json"})
-get("join_encosa_old", "https://join.com/companies/encosa615/15495404-operations-procurement-manager-bess-m-w-d")
-get("join_univativ_old", "https://join.com/companies/univativ6/14203537-technischer-sachbearbeiter-m-w-d-netzbetrieb")
+    for n in (1, 2, 3):
+        page(f"{slug}_p{n}", f"https://join.com/companies/{slug}" + (f"?page={n}" if n > 1 else ""))
+        time.sleep(0.5)
+    page(f"{slug}_p2_bust", f"https://join.com/companies/{slug}?page=2&t={int(time.time())}")
 
-# --- Munich Electrification (Lever / Ashby)
-get("lever_me", "https://api.lever.co/v0/postings/MunichElectrification?mode=json")
-get("lever_me_old", "https://jobs.lever.co/MunichElectrification/f6b92668-2ee5-419c-b32d-59e3deae39df")
-get("ashby_me", "https://api.ashbyhq.com/posting-api/job-board/munich-electrification")
+for cid, slug in ((39626, "axsol"), (15425, "junizenergy")):
+    for ps in (5, 10, 20, 25, 30, 40):
+        u = f"https://join.com/api/public/companies/{cid}/jobs?page=1&pageSize={ps}"
+        try:
+            r = requests.get(u, headers={**UA, "Accept": "application/json"}, timeout=30)
+            body = r.text
+            info = {"status": r.status_code, "len": len(body), "head": body[:300]}
+            if r.status_code == 200:
+                d = r.json()
+                info["keys"] = list(d.keys()) if isinstance(d, dict) else type(d).__name__
+                open(os.path.join(RAW, f"api_{slug}_{ps}.json"), "w", encoding="utf-8").write(body[:400000])
+            summary[f"api_{slug}_ps{ps}"] = info
+        except Exception as ex:  # noqa: BLE001
+            summary[f"api_{slug}_ps{ps}"] = {"error": repr(ex)[:200]}
+        time.sleep(0.4)
 
-# --- rejobs.org
-for name, u in {"rj_pm": "https://rejobs.org/de/erneuerbare-energien-jobs/projektmanagement",
-                "rj_pm_p2": "https://rejobs.org/de/erneuerbare-energien-jobs/projektmanagement?page=2",
-                "rj_de_tag": "https://rejobs.org/de/erneuerbare-energien-jobs/deutschland?tag=projektmanagement",
-                "rj_de": "https://rejobs.org/de/erneuerbare-energien-jobs/deutschland",
-                "rj_de_pm": "https://rejobs.org/de/erneuerbare-energien-jobs/deutschland/projektmanagement",
-                "rj_batt": "https://rejobs.org/de/erneuerbare-energien-jobs/batterietechnologie",
-                "rj_job": "https://rejobs.org/de/erneuerbare-energien-jobs/141582-sales-manager-mwd-fur-batteriespeichersysteme-axsol-gmbh",
-                "rj_robots": "https://rejobs.org/robots.txt",
-                "rj_sitemap": "https://rejobs.org/sitemap.xml",
-                "rj_rss": "https://rejobs.org/rss",
-                "rj_feed": "https://rejobs.org/feed"}.items():
-    r = get(name, u)
-    if r is not None and name in ("rj_pm", "rj_batt", "rj_de"):
-        t = r.text
-        summary[name]["job_links"] = sorted(set(re.findall(r'href="(/de/erneuerbare-energien-jobs/\d+-[^"]+)"', t)))[:60]
-        summary[name]["cat_links"] = sorted(set(re.findall(r'href="(/de/erneuerbare-energien-jobs/[a-z][^"?#]*(?:\?[^"#]*)?)"', t)))[:120]
-        summary[name]["api_paths"] = sorted(set(re.findall(r'["\'](/api/[^"\'\s<>]{3,120})["\']', t)))[:40]
-        summary[name]["abgelaufen"] = len(re.findall(r"Abgelaufen", t))
-
-json.dump(summary, open(os.path.join(OUT, "summary4.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-print(json.dumps({k: {kk: vv for kk, vv in v.items() if kk in ("status", "len", "title", "error")} for k, v in summary.items()}, ensure_ascii=False, indent=1))
+r = requests.get("https://join.com/companies/junizenergy/16874449-projektleiter-m-w-d-batteriegrossspeicher-bess", headers=UA, timeout=30)
+d = nd(r.text)
+job = d.get("job") or {}
+summary["job_live"] = {"status": r.status_code, "final": r.url, "job_status": job.get("status"), "createdAt": job.get("createdAt"),
+                       "updatedAt": job.get("updatedAt"), "closedAt": job.get("closedAt"), "lastId": job.get("lastId"),
+                       "idParam": job.get("idParam"), "workplaceType": job.get("workplaceType"), "city": job.get("city"),
+                       "salary": {k: job.get(k) for k in job if "alary" in k},
+                       "desc_len": len(job.get("description") or ""), "keys": sorted(job.keys())}
+open(os.path.join(RAW, "job_live.json"), "w", encoding="utf-8").write(json.dumps(job, ensure_ascii=False, indent=1)[:200000])
+json.dump(summary, open(os.path.join(OUT, "summary5.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+print(json.dumps(summary, ensure_ascii=False, indent=1)[:8000])
