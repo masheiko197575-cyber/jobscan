@@ -2,14 +2,13 @@ name: daily-scan
 
 on:
   schedule:
-    # GitHub startet geplante Läufe nur nach Möglichkeit (05.11.2026: 8 h zu spät, 06.11.: gar nicht).
-    # Darum mehrere Zeitfenster (UTC, nicht zur vollen Stunde); der erste vollständige Lauf des Tages ab 03:00 UTC zählt,
-    # spätere Zeitfenster enden nach ein paar Sekunden (Schritt «Heute schon gelaufen?»).
-    # Zusätzlich startet eine Claude-Aufgabe den Scan jeden Morgen über workflow_dispatch (only_if_missing=true).
-    - cron: '17 3 * * *'
-    - cron: '47 4 * * *'
-    - cron: '23 6 * * *'
-    - cron: '41 7 * * *'
+    # Scan gegen 10:00 Berlin, damit die Stellen vom Morgen (HR veröffentlicht oft früh am Tag) schon drin sind;
+    # die Morgenaufgabe läuft um 10:53. Hauptauslöser ist eine Claude-Aufgabe um 09:57 Berlin (workflow_dispatch mit
+    # only_if_missing=true) — GitHub startet geplante Läufe nur nach Möglichkeit (05.11.2026: 8 h zu spät, 06.11.: gar
+    # nicht). Die Zeitfenster hier sind Reserve (UTC; Winter 09:53 und 10:19 Berlin, Sommer eine Stunde später).
+    # Es zählt der erste vollständige Lauf des Tages ab 09:30 Berlin, spätere enden nach ein paar Sekunden.
+    - cron: '53 8 * * *'
+    - cron: '19 9 * * *'
   workflow_dispatch:
     inputs:
       only_if_missing:
@@ -50,18 +49,22 @@ jobs:
         run: |
           python3 - <<'EOF'
           import datetime as dt, json, os
+          from zoneinfo import ZoneInfo
           skip = False
           if os.environ["EVENT"] == "schedule" or os.environ.get("ONLY_IF_MISSING") == "true":
               try:
                   rl = json.load(open("data/run-log.json", encoding="utf-8"))
-                  gen = rl.get("generated") or ""
-                  today = dt.datetime.now(dt.timezone.utc).date().isoformat()
-                  done = (not rl.get("aborted") and gen[:10] == today and gen[11:16] >= "03:00"
+                  berlin = ZoneInfo("Europe/Berlin")
+                  gen = dt.datetime.fromisoformat((rl.get("generated") or "").replace("Z", "+00:00")).astimezone(berlin)
+                  now = dt.datetime.now(berlin)
+                  # zählt nur ein vollständiger Scan von heute ab 09:30 Berlin (frühere Läufe, z. B. nach einem
+                  # nächtlichen Push, enthalten die Stellen vom Morgen noch nicht)
+                  done = (not rl.get("aborted") and gen.date() == now.date() and gen.strftime("%H:%M") >= "09:30"
                           and ((rl.get("stats") or {}).get("jobboerse_unique") or 0) > 0)
                   skip = bool(done)
-                  print("letzter Lauf:", gen, "→ überspringen" if skip else "→ scannen")
+                  print("letzter Lauf (Berlin):", gen.strftime("%Y-%m-%d %H:%M"), "→ überspringen" if skip else "→ scannen")
               except Exception as e:  # noqa: BLE001
-                  print("kein run-log:", e)
+                  print("run-log nicht auswertbar → scannen:", e)
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"skip={'true' if skip else 'false'}\n")
           EOF
