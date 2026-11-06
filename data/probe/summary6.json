@@ -1,0 +1,722 @@
+{
+ "buergerwerke|de|/xml|ua": {
+  "status": 404,
+  "final": "https://buergerwerke.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "buergerwerke|de|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://buergerwerke.jobs.personio.de/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "buergerwerke|de|/xml|browser": {
+  "status": 404,
+  "final": "https://buergerwerke.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "buergerwerke|de|/|browser": {
+  "status": 200,
+  "final": "https://buergerwerke.jobs.personio.de/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 72158,
+  "positions": 0,
+  "job_links": 2,
+  "title": "Jobs bei Bürgerwerke eG"
+ },
+ "buergerwerke|de|/search.json|browser": {
+  "status": 200,
+  "final": "https://buergerwerke.jobs.personio.de/search.json",
+  "ctype": "application/json",
+  "len": 926,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "buergerwerke|com|/xml|ua": {
+  "status": 404,
+  "final": "https://buergerwerke.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "buergerwerke|com|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://buergerwerke.jobs.personio.com/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "buergerwerke|com|/xml|browser": {
+  "status": 404,
+  "final": "https://buergerwerke.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "buergerwerke|com|/|browser": {
+  "status": 200,
+  "final": "https://buergerwerke.jobs.personio.com/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 72169,
+  "positions": 0,
+  "job_links": 2,
+  "title": "Jobs bei Bürgerwerke eG"
+ },
+ "buergerwerke|com|/search.json|browser": {
+  "status": 200,
+  "final": "https://buergerwerke.jobs.personio.com/search.json",
+  "ctype": "application/json",
+  "len": 926,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "energiegewinner-egt|de|/xml|ua": {
+  "status": 404,
+  "final": "https://energiegewinner-egt.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energiegewinner-egt|de|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://energiegewinner-egt.jobs.personio.de/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energiegewinner-egt|de|/xml|browser": {
+  "status": 404,
+  "final": "https://energiegewinner-egt.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energiegewinner-egt|de|/|browser": {
+  "status": 404,
+  "final": "https://energiegewinner-egt.jobs.personio.de/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energiegewinner-egt|de|/search.json|browser": {
+  "status": 404,
+  "final": "https://energiegewinner-egt.jobs.personio.de/search.json",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energiegewinner-egt|com|/xml|ua": {
+  "status": 404,
+  "final": "https://energiegewinner-egt.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energiegewinner-egt|com|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://energiegewinner-egt.jobs.personio.com/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energiegewinner-egt|com|/xml|browser": {
+  "status": 404,
+  "final": "https://energiegewinner-egt.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energiegewinner-egt|com|/|browser": {
+  "status": 404,
+  "final": "https://energiegewinner-egt.jobs.personio.com/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energiegewinner-egt|com|/search.json|browser": {
+  "status": 404,
+  "final": "https://energiegewinner-egt.jobs.personio.com/search.json",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energieversum|de|/xml|ua": {
+  "status": 404,
+  "final": "https://energieversum.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energieversum|de|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://energieversum.jobs.personio.de/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energieversum|de|/xml|browser": {
+  "status": 404,
+  "final": "https://energieversum.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energieversum|de|/|browser": {
+  "status": 200,
+  "final": "https://energieversum.jobs.personio.de/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 266088,
+  "positions": 0,
+  "job_links": 24,
+  "title": "Jobs bei Energieversum | Karriere"
+ },
+ "energieversum|de|/search.json|browser": {
+  "status": 200,
+  "final": "https://energieversum.jobs.personio.de/search.json",
+  "ctype": "application/json",
+  "len": 10843,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "energieversum|com|/xml|ua": {
+  "status": 404,
+  "final": "https://energieversum.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energieversum|com|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://energieversum.jobs.personio.com/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energieversum|com|/xml|browser": {
+  "status": 404,
+  "final": "https://energieversum.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "energieversum|com|/|browser": {
+  "status": 200,
+  "final": "https://energieversum.jobs.personio.com/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 266097,
+  "positions": 0,
+  "job_links": 24,
+  "title": "Jobs bei Energieversum | Karriere"
+ },
+ "energieversum|com|/search.json|browser": {
+  "status": 200,
+  "final": "https://energieversum.jobs.personio.com/search.json",
+  "ctype": "application/json",
+  "len": 10843,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "tauber-solar|de|/xml|ua": {
+  "status": 404,
+  "final": "https://tauber-solar.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-solar|de|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://tauber-solar.jobs.personio.de/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-solar|de|/xml|browser": {
+  "status": 404,
+  "final": "https://tauber-solar.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-solar|de|/|browser": {
+  "status": 200,
+  "final": "https://tauber-solar.jobs.personio.de/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 144884,
+  "positions": 0,
+  "job_links": 10,
+  "title": "Jobs bei TAUBER-SOLAR"
+ },
+ "tauber-solar|de|/search.json|browser": {
+  "status": 200,
+  "final": "https://tauber-solar.jobs.personio.de/search.json",
+  "ctype": "application/json",
+  "len": 4383,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "tauber-solar|com|/xml|ua": {
+  "status": 404,
+  "final": "https://tauber-solar.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-solar|com|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://tauber-solar.jobs.personio.com/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-solar|com|/xml|browser": {
+  "status": 404,
+  "final": "https://tauber-solar.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-solar|com|/|browser": {
+  "status": 200,
+  "final": "https://tauber-solar.jobs.personio.com/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 144895,
+  "positions": 0,
+  "job_links": 10,
+  "title": "Jobs bei TAUBER-SOLAR"
+ },
+ "tauber-solar|com|/search.json|browser": {
+  "status": 200,
+  "final": "https://tauber-solar.jobs.personio.com/search.json",
+  "ctype": "application/json",
+  "len": 4383,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "tauber-energy|de|/xml|ua": {
+  "status": 404,
+  "final": "https://tauber-energy.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-energy|de|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://tauber-energy.jobs.personio.de/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-energy|de|/xml|browser": {
+  "status": 404,
+  "final": "https://tauber-energy.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-energy|de|/|browser": {
+  "status": 200,
+  "final": "https://tauber-energy.jobs.personio.de/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 71167,
+  "positions": 0,
+  "job_links": 2,
+  "title": "Jobs bei Tauber Energy GmbH"
+ },
+ "tauber-energy|de|/search.json|browser": {
+  "status": 200,
+  "final": "https://tauber-energy.jobs.personio.de/search.json",
+  "ctype": "application/json",
+  "len": 725,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "tauber-energy|com|/xml|ua": {
+  "status": 404,
+  "final": "https://tauber-energy.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-energy|com|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://tauber-energy.jobs.personio.com/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-energy|com|/xml|browser": {
+  "status": 404,
+  "final": "https://tauber-energy.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "tauber-energy|com|/|browser": {
+  "status": 200,
+  "final": "https://tauber-energy.jobs.personio.com/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 71178,
+  "positions": 0,
+  "job_links": 2,
+  "title": "Jobs bei Tauber Energy GmbH"
+ },
+ "tauber-energy|com|/search.json|browser": {
+  "status": 200,
+  "final": "https://tauber-energy.jobs.personio.com/search.json",
+  "ctype": "application/json",
+  "len": 725,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "trawa|de|/xml|ua": {
+  "status": 404,
+  "final": "https://trawa.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "trawa|de|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://trawa.jobs.personio.de/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "trawa|de|/xml|browser": {
+  "status": 404,
+  "final": "https://trawa.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "trawa|de|/|browser": {
+  "status": 404,
+  "final": "https://trawa.jobs.personio.de/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "trawa|de|/search.json|browser": {
+  "status": 404,
+  "final": "https://trawa.jobs.personio.de/search.json",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "trawa|com|/xml|ua": {
+  "status": 404,
+  "final": "https://trawa.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "trawa|com|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://trawa.jobs.personio.com/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "trawa|com|/xml|browser": {
+  "status": 404,
+  "final": "https://trawa.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "trawa|com|/|browser": {
+  "status": 404,
+  "final": "https://trawa.jobs.personio.com/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "trawa|com|/search.json|browser": {
+  "status": 404,
+  "final": "https://trawa.jobs.personio.com/search.json",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "juniz-energy|de|/xml|ua": {
+  "status": 404,
+  "final": "https://juniz-energy.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "juniz-energy|de|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://juniz-energy.jobs.personio.de/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "juniz-energy|de|/xml|browser": {
+  "status": 404,
+  "final": "https://juniz-energy.jobs.personio.de/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "juniz-energy|de|/|browser": {
+  "status": 200,
+  "final": "https://juniz-energy.jobs.personio.de/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 149207,
+  "positions": 0,
+  "job_links": 12,
+  "title": "Jobs bei"
+ },
+ "juniz-energy|de|/search.json|browser": {
+  "status": 200,
+  "final": "https://juniz-energy.jobs.personio.de/search.json",
+  "ctype": "application/json",
+  "len": 4647,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "juniz-energy|com|/xml|ua": {
+  "status": 404,
+  "final": "https://juniz-energy.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "juniz-energy|com|/xml?language=de|ua": {
+  "status": 404,
+  "final": "https://juniz-energy.jobs.personio.com/xml?language=de",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "juniz-energy|com|/xml|browser": {
+  "status": 404,
+  "final": "https://juniz-energy.jobs.personio.com/xml",
+  "ctype": "text/html; charset=utf-8",
+  "len": 2472,
+  "positions": 0,
+  "job_links": 0,
+  "title": "Page Not Found"
+ },
+ "juniz-energy|com|/|browser": {
+  "status": 200,
+  "final": "https://juniz-energy.jobs.personio.com/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 149216,
+  "positions": 0,
+  "job_links": 12,
+  "title": "Jobs bei"
+ },
+ "juniz-energy|com|/search.json|browser": {
+  "status": 200,
+  "final": "https://juniz-energy.jobs.personio.com/search.json",
+  "ctype": "application/json",
+  "len": 4647,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "arteus-energy|de|/xml|ua": {
+  "status": 200,
+  "final": "https://arteus-energy.jobs.personio.de/xml",
+  "ctype": "text/xml",
+  "len": 79117,
+  "positions": 22,
+  "job_links": 0,
+  "title": ""
+ },
+ "arteus-energy|de|/xml?language=de|ua": {
+  "status": 200,
+  "final": "https://arteus-energy.jobs.personio.de/xml?language=de",
+  "ctype": "text/xml",
+  "len": 79117,
+  "positions": 22,
+  "job_links": 0,
+  "title": ""
+ },
+ "arteus-energy|de|/xml|browser": {
+  "status": 200,
+  "final": "https://arteus-energy.jobs.personio.de/xml",
+  "ctype": "text/xml",
+  "len": 79117,
+  "positions": 22,
+  "job_links": 0,
+  "title": ""
+ },
+ "arteus-energy|de|/|browser": {
+  "status": 200,
+  "final": "https://arteus-energy.jobs.personio.de/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 248347,
+  "positions": 0,
+  "job_links": 22,
+  "title": "Jobs bei Arteus Energy"
+ },
+ "arteus-energy|de|/search.json|browser": {
+  "status": 200,
+  "final": "https://arteus-energy.jobs.personio.de/search.json",
+  "ctype": "application/json",
+  "len": 8388,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ },
+ "arteus-energy|com|/xml|ua": {
+  "status": 200,
+  "final": "https://arteus-energy.jobs.personio.com/xml",
+  "ctype": "text/xml",
+  "len": 79117,
+  "positions": 22,
+  "job_links": 0,
+  "title": ""
+ },
+ "arteus-energy|com|/xml?language=de|ua": {
+  "status": 200,
+  "final": "https://arteus-energy.jobs.personio.com/xml?language=de",
+  "ctype": "text/xml",
+  "len": 79117,
+  "positions": 22,
+  "job_links": 0,
+  "title": ""
+ },
+ "arteus-energy|com|/xml|browser": {
+  "status": 200,
+  "final": "https://arteus-energy.jobs.personio.com/xml",
+  "ctype": "text/xml",
+  "len": 79117,
+  "positions": 22,
+  "job_links": 0,
+  "title": ""
+ },
+ "arteus-energy|com|/|browser": {
+  "status": 200,
+  "final": "https://arteus-energy.jobs.personio.com/",
+  "ctype": "text/html; charset=utf-8",
+  "len": 248355,
+  "positions": 0,
+  "job_links": 22,
+  "title": "Jobs bei Arteus Energy"
+ },
+ "arteus-energy|com|/search.json|browser": {
+  "status": 200,
+  "final": "https://arteus-energy.jobs.personio.com/search.json",
+  "ctype": "application/json",
+  "len": 8388,
+  "positions": 0,
+  "job_links": 0,
+  "title": ""
+ }
+}
