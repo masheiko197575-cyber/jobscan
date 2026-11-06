@@ -2,8 +2,20 @@ name: daily-scan
 
 on:
   schedule:
-    - cron: '35 6 * * *'   # 07:35 Berlin (CET) / 08:35 (CEST) — vor dem Morgen-Scan um 09:52
+    # GitHub startet geplante Läufe nur nach Möglichkeit (05.11.2026: 8 h zu spät, 06.11.: gar nicht).
+    # Darum mehrere Zeitfenster (UTC, nicht zur vollen Stunde); der erste vollständige Lauf des Tages ab 03:00 UTC zählt,
+    # spätere Zeitfenster enden nach ein paar Sekunden (Schritt «Heute schon gelaufen?»).
+    # Zusätzlich startet eine Claude-Aufgabe den Scan jeden Morgen über workflow_dispatch (only_if_missing=true).
+    - cron: '17 3 * * *'
+    - cron: '47 4 * * *'
+    - cron: '23 6 * * *'
+    - cron: '41 7 * * *'
   workflow_dispatch:
+    inputs:
+      only_if_missing:
+        description: 'Nur scannen, wenn es heute noch keinen vollständigen Lauf gab'
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -25,24 +37,50 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Abhängigkeiten
-        run: |
-          pip install -r requirements.txt
-          pip install python-jobspy || echo "jobspy nicht installiert – Scan läuft ohne"
       - name: Cache vom data-Branch holen
         run: |
           # Ergebnisse und Caches liegen im Branch "data" (jeden Tag ein frischer Commit, keine wachsende Historie)
           git fetch --depth 1 origin data && git checkout origin/data -- data || echo "noch kein data-Branch"
           git reset -q
+      - name: Heute schon gelaufen?
+        id: guard
+        env:
+          EVENT: ${{ github.event_name }}
+          ONLY_IF_MISSING: ${{ inputs.only_if_missing }}
+        run: |
+          python3 - <<'EOF'
+          import datetime as dt, json, os
+          skip = False
+          if os.environ["EVENT"] == "schedule" or os.environ.get("ONLY_IF_MISSING") == "true":
+              try:
+                  rl = json.load(open("data/run-log.json", encoding="utf-8"))
+                  gen = rl.get("generated") or ""
+                  today = dt.datetime.now(dt.timezone.utc).date().isoformat()
+                  done = (not rl.get("aborted") and gen[:10] == today and gen[11:16] >= "03:00"
+                          and ((rl.get("stats") or {}).get("jobboerse_unique") or 0) > 0)
+                  skip = bool(done)
+                  print("letzter Lauf:", gen, "→ überspringen" if skip else "→ scannen")
+              except Exception as e:  # noqa: BLE001
+                  print("kein run-log:", e)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"skip={'true' if skip else 'false'}\n")
+          EOF
+      - uses: actions/setup-python@v5
+        if: steps.guard.outputs.skip != 'true'
+        with:
+          python-version: '3.12'
+      - name: Abhängigkeiten
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          pip install -r requirements.txt
+          pip install python-jobspy || echo "jobspy nicht installiert – Scan läuft ohne"
       - name: Scan
+        if: steps.guard.outputs.skip != 'true'
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scan.py
       - name: Ergebnis in Branch data schreiben
-        if: always()
+        if: always() && steps.guard.outputs.skip != 'true'
         run: |
           git config user.name "jobscan-bot"
           git config user.email "jobscan-bot@users.noreply.github.com"

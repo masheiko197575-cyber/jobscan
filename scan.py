@@ -5,7 +5,7 @@ Quellen:
   * Arbeitsagentur Jobsuche-API (dokumentiert von bundesAPI/jobsuche-api, öffentlicher Client-Key)
     - Branchen-Suchwörter × (Deutschland | 75 km um Ludwigsburg | Homeoffice), Fenster N Tage
     - Arbeitgeber aus dem Beobachtungs-Verzeichnis (Suche nach Name)
-  * Personio-XML-Feeds, Recruitee-, SmartRecruiters- und Workday-APIs beobachteter Firmen
+  * Personio-XML-Feeds, Recruitee-, SmartRecruiters-, Workday-, JOIN- und Ashby-APIs beobachteter Firmen
   * Atom-Feeds von eejobs.de und greenjobs.de
   * optional python-jobspy (Indeed, LinkedIn-Gastsuche) — fällt still aus, wenn blockiert
 
@@ -582,9 +582,151 @@ def scan_workday(e):
     return jobs
 
 
-def scan_feeds():
+NEXT_DATA = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
+
+
+def join_page(url):
+    """Daten einer JOIN-Seite (Firmen- oder Stellenseite) aus __NEXT_DATA__; None, wenn die Seite nicht lädt."""
+    raw = http_get(url, headers=UA, as_json=False)
+    if raw is None:
+        return None
+    t = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw
+    m = NEXT_DATA.search(t)
+    if not m:
+        return {}
+    try:
+        pp = (json.loads(m.group(1)).get("props") or {}).get("pageProps") or {}
+    except Exception:  # noqa: BLE001
+        return {}
+    return pp.get("pageData") or pp.get("initialState") or {}
+
+
+def scan_join(e, details_cache):
+    """JOIN (join.com): Die Firmenseite zeigt nur 5 Stellen, ihr ?page=N liefert oft die falsche Seite.
+    Vollständig ist die öffentliche Liste /api/public/companies/<Firmen-ID>/jobs (pageSize nur 5 erlaubt).
+    id = Nummer aus der Stellen-URL (wie im Feld seen der Tabelle); JOIN vergibt sie beim Auffrischen neu."""
+    slug = e["slug"]
+    base = f"https://join.com/companies/{slug}"
+    key = f"join-company:{slug}"
+    cid = (details_cache.get(key) or {}).get("company_id")
+    first = None
+    if not cid:
+        first = join_page(base)
+        if first is None:
+            return None
+        cid = (first.get("company") or {}).get("id")
+        if not cid:
+            err(f"JOIN {e['name']}: Firmen-ID nicht gefunden")
+            return None
+        details_cache[key] = {"company_id": cid, "cached_at": TODAY}
+    items, page, pages, complete = [], 1, 1, True
+    while page <= pages and page <= 40:
+        d = http_get(f"https://join.com/api/public/companies/{cid}/jobs", {"page": page, "pageSize": 5},
+                     headers={**UA, "Accept": "application/json"})
+        if not isinstance(d, dict):
+            complete = False
+            details_cache.pop(key, None)  # Firmen-ID beim nächsten Lauf neu holen
+            break
+        items.extend(d.get("items") or [])
+        pages = int((d.get("pagination") or {}).get("pageCount") or 1)
+        page += 1
+        time.sleep(0.4)
+    if not items and not complete:  # API kaputt: wenigstens die ersten 5 von der Firmenseite
+        first = first if first is not None else join_page(base)
+        if not first:
+            return None
+        items = (first.get("jobs") or {}).get("items") or []
+    jobs, ids = [], set()
+    for it in items:
+        idp = it.get("idParam") or ""
+        jid = idp.split("-", 1)[0]
+        if not jid.isdigit() or jid in ids:
+            continue
+        ids.add(jid)
+        title = it.get("title") or ""
+        country = ((it.get("country") or {}).get("iso3166") or "").upper()
+        wp = (it.get("workplaceType") or "").upper()
+        if country and country != "DE" and wp != "REMOTE":
+            continue
+        city = (it.get("city") or {}).get("cityName") or ""
+        loc = f"Remote ({city or country or '—'})" if wp == "REMOTE" else city + (" (hybrid)" if wp == "HYBRID" else "")
+        rec = {
+            "id": jid,
+            "source": "Сайт компании",
+            "company": e["name"],
+            "title": title,
+            "location": loc,
+            "workplace": wp.lower() or None,
+            "published": (it.get("createdAt") or "")[:10] or None,
+            "url": f"{base}/{idp}",
+            "title_tier": title_tier(title),
+            "found_by": [f"Компании под наблюдением: {e['name']}"],
+        }
+        if (it.get("settings") or {}).get("showSalary"):
+            lo = (it.get("salaryAmountFrom") or {}).get("amount")
+            hi = (it.get("salaryAmountTo") or {}).get("amount")
+            if lo or hi:
+                rec["salary"] = {"from": round(lo / 100) if lo else None, "to": round(hi / 100) if hi else None,
+                                 "per": it.get("salaryFrequency")}
+        if rec["title_tier"] == "prefer":
+            c = details_cache.get(f"join:{jid}")
+            if c is None:
+                job = (join_page(rec["url"]) or {}).get("job") or {}
+                if job:
+                    c = {"description": cut(strip_html(job.get("description") or "")),
+                         "updated": (job.get("updatedAt") or "")[:10] or None, "cached_at": TODAY}
+                    details_cache[f"join:{jid}"] = c
+                time.sleep(0.5)
+            if c:
+                rec["description"] = c.get("description")
+                if c.get("updated"):
+                    rec["updated"] = c["updated"]
+        jobs.append(rec)
+    if not complete:
+        err(f"JOIN {e['name']}: Liste unvollständig ({len(jobs)} gelesen)")
+    return jobs
+
+
+def scan_ashby(e):
+    """Ashby (jobs.ashbyhq.com): öffentliche Job-Board-API mit Volltext."""
+    d = http_get(f"https://api.ashbyhq.com/posting-api/job-board/{e['board']}", headers={**UA, "Accept": "application/json"})
+    if not isinstance(d, dict):
+        return None
+    jobs = []
+    for j in d.get("jobs") or []:
+        if j.get("isListed") is False:
+            continue
+        title = j.get("title") or ""
+        country = ((j.get("address") or {}).get("postalAddress") or {}).get("addressCountry") or ""
+        remote = (j.get("workplaceType") or "").lower() == "remote"
+        if country and not re.search(r"German|Deutschland|^DE$", country, re.I) and not remote:
+            continue
+        locs = [j.get("location") or ""] + [s.get("location") or "" for s in (j.get("secondaryLocations") or []) if isinstance(s, dict)]
+        rec = {
+            "id": f"ashby-{j.get('id')}",
+            "source": "Сайт компании",
+            "company": e["name"],
+            "title": title,
+            "location": ", ".join(x for x in locs if x),
+            "workplace": (j.get("workplaceType") or "").lower() or None,
+            "employment": j.get("employmentType"),
+            "published": (j.get("publishedAt") or "")[:10] or None,
+            "url": j.get("jobUrl"),
+            "title_tier": title_tier(title),
+            "found_by": [f"Компании под наблюдением: {e['name']}"],
+        }
+        if rec["title_tier"] == "prefer":
+            rec["description"] = cut(j.get("descriptionPlain") or strip_html(j.get("descriptionHtml") or ""))
+        jobs.append(rec)
+    return jobs
+
+
+def scan_feeds(details_cache):
     out = {}
-    for kind, fn in (("personio", scan_personio), ("recruitee", scan_recruitee), ("smartrecruiters", scan_smartrecruiters), ("workday", scan_workday)):
+    kinds = (("personio", scan_personio), ("recruitee", scan_recruitee), ("smartrecruiters", scan_smartrecruiters),
+             ("workday", scan_workday), ("join", lambda e: scan_join(e, details_cache)), ("ashby", scan_ashby))
+    counts = {}
+    for kind, fn in kinds:
         for e in CFG.get(kind, []):
             try:
                 jobs = fn(e)
@@ -597,8 +739,10 @@ def scan_feeds():
             else:
                 entry["jobs"].extend(jobs)
                 entry["method"] = entry["method"] if entry["method"] == kind else f"{entry['method']}+{kind}"
+                counts[kind] = counts.get(kind, 0) + len(jobs)
             time.sleep(0.3)
-    log(f"Feeds: {len(out)} Firmen")
+    STATS["feeds"] = {"companies": len(out), "jobs": counts, "failed": sorted(k for k, v in out.items() if v.get("error"))}
+    log(f"Feeds: {len(out)} Firmen, Stellen {counts}")
     return out
 
 
@@ -685,7 +829,7 @@ def li_job_text(job_id):
     return text or None
 
 
-def scan_jobspy():
+def scan_jobspy(details_cache=None):
     cfg = CFG.get("jobspy") or {}
     if not cfg.get("enabled", True):
         return []
@@ -749,7 +893,9 @@ def scan_jobspy():
             time.sleep(2)
     # LinkedIn gibt in der Suche keinen Text: Stellenseite lesen und Stellen ohne PV/BESS im Text verwerfen
     # (wie bei der Jobbörse). Seite nicht lesbar → Stelle bleibt ohne Text, wie bisher.
-    det = {"read": 0, "unreadable": 0, "no_pv_bess_dropped": 0}
+    # Gelesene Texte bleiben 7 Tage im details-Cache (Schlüssel "li:<id>"), damit ein zweiter Lauf am selben Tag
+    # (Push, Nachstart) LinkedIn nicht erneut abfragt.
+    det = {"read": 0, "cached": 0, "unreadable": 0, "no_pv_bess_dropped": 0}
     li_max = int(cfg.get("linkedin_details_max", 150))
     in_row = 0
     for url, rec in list(out.items()):
@@ -760,23 +906,32 @@ def scan_jobspy():
             continue
         if rec["source"] != "LinkedIn" or rec.get("description"):
             continue
-        if det["read"] + det["unreadable"] >= li_max or in_row >= 6:
-            continue
         m = re.search(r"/jobs/view/(?:[^/?#]*-)?(\d+)", url)
-        text = li_job_text(m.group(1)) if m else None
-        if text is None:
-            det["unreadable"] += 1
-            in_row += 1
-            time.sleep(6)
-            continue
-        in_row = 0
-        det["read"] += 1
-        if not INDUSTRY_STRICT.search(f"{rec['title']} {rec['company']} {text}"):
+        ck = f"li:{m.group(1)}" if m else None
+        hit = details_cache.get(ck) if (details_cache is not None and ck) else None
+        if hit is not None:
+            det["cached"] += 1
+            text = hit.get("text") or ""
+        else:
+            if det["read"] + det["unreadable"] >= li_max or in_row >= 6:
+                continue
+            text = li_job_text(m.group(1)) if m else None
+            if text is None:
+                det["unreadable"] += 1
+                in_row += 1
+                time.sleep(6)
+                continue
+            in_row = 0
+            det["read"] += 1
+            time.sleep(random.uniform(1.5, 3.5))
+        relevant = bool(INDUSTRY_STRICT.search(f"{rec['title']} {rec['company']} {text}"))
+        if hit is None and ck and details_cache is not None:
+            details_cache[ck] = {"text": cut(text) if relevant else "", "cached_at": TODAY}
+        if not relevant:
             det["no_pv_bess_dropped"] += 1
             del out[url]
         else:
             rec["description"] = cut(text)
-        time.sleep(random.uniform(1.5, 3.5))
     kept = {}
     for rec in out.values():
         kept[rec["source"]] = kept.get(rec["source"], 0) + 1
@@ -1160,7 +1315,7 @@ def main():
 
     prefer, other, alljobs = scan_jobboerse(details_cache)
     watch = scan_employers(int(CFG.get("employer_days", 30)), details_cache)
-    for cid, entry in scan_feeds().items():
+    for cid, entry in scan_feeds(details_cache).items():
         cur = watch.get(cid)
         if cur:
             cur["jobs"].extend(entry.get("jobs", []))
@@ -1170,7 +1325,7 @@ def main():
         else:
             watch[cid] = entry
     boards = scan_atom()
-    boards += scan_jobspy()
+    boards += scan_jobspy(details_cache)
     boards += scan_xing(details_cache)
     boards += scan_serpapi()
 
@@ -1187,7 +1342,9 @@ def main():
     # seen.json und details.json auf 45 Tage begrenzen
     cutoff = (NOW - dt.timedelta(days=45)).date().isoformat()
     seen["refnr"] = {k: v for k, v in seen["refnr"].items() if v >= cutoff}
-    details_cache = {k: v for k, v in details_cache.items() if (v.get("cached_at") or "") >= cutoff}
+    li_cutoff = (NOW - dt.timedelta(days=7)).date().isoformat()  # LinkedIn-Texte nur 7 Tage
+    details_cache = {k: v for k, v in details_cache.items()
+                     if (v.get("cached_at") or "") >= (li_cutoff if k.startswith("li:") else cutoff)}
 
     out = {
         "generated": NOW.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1196,7 +1353,7 @@ def main():
         "schema": {
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
-            "watch": "beobachtete Firmen: id → {name, method, jobs[]}; jobs mit title_tier prefer haben description",
+            "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby): id → {name, method, jobs[]}; jobs mit title_tier prefer haben description; JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten)",
             "boards": "eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
         },
         "candidates": sorted(prefer, key=lambda r: (r.get("km") is None, r.get("km") or 0, r.get("company") or "")),
