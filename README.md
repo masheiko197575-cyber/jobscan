@@ -8,7 +8,7 @@ Inhalt:
 
 - `candidates` — Jobbörse der Bundesagentur (offizielle Jobsuche-API), Titel passt zur Rolle, mit Beschreibung
 - `other` — Jobbörse, Titel unklar (nur Titel/Firma/Ort)
-- `watch` — beobachtete Arbeitgeber (Jobbörse nach Name, Personio-, Recruitee-, SmartRecruiters-, Workday-, JOIN- und Ashby-Feeds; JOIN über die öffentliche Liste `/api/public/companies/<ID>/jobs`, alle Seiten)
+- `watch` — beobachtete Arbeitgeber (Jobbörse nach Name, Personio-, Recruitee-, SmartRecruiters-, Workday-, JOIN- und Ashby-Feeds; JOIN über die öffentliche Liste `/api/public/companies/<ID>/jobs`, alle Seiten; Personio ohne XML-Liste über `/search.json`)
 - `boards` — eejobs.de und greenjobs.de (Atom) sowie optional python-jobspy (Indeed, LinkedIn-Gastsuche)
 - `stats`, `errors`
 

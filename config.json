@@ -10,6 +10,7 @@
   "industry_regex": "Photovoltaik|\\bPV\\b|Solar|Batterie|Energiespeicher|Stromspeicher|\\bBESS\\b|Speicher|Erneuerbare|Renewable|Energiewende|Mieterstrom|Netzanschluss|Agri-PV|Freifläche|Energie|Energy",
   "industry_strict_regex": "Photovoltaik|\\bPV\\b|Solar|Batterie|Energiespeicher|Stromspeicher|Großspeicher|Grossspeicher|\\bBESS\\b|Speicher|Erneuerbare|Renewable|Mieterstrom|Agri-PV|Freifläche|Netzanschluss|Einspeis|Anlagenanmeld|Netzanmeld",
   "employers": [
+    {"id": "energiegewinner-egt", "name": "EGT Unternehmensgruppe (Triberg)", "query": "EGT", "match": "egt "},
     {"id": "1komma5", "name": "1KOMMA5°", "query": "1KOMMA5", "match": "1komma5"},
     {"id": "aquila-clean-energy", "name": "Aquila Clean Energy", "query": "Aquila", "match": "aquila"},
     {"id": "arau-technik", "name": "Arau Technik", "query": "Arau Technik", "match": "arau"},
@@ -214,6 +215,7 @@
     {"id": "eneo", "name": "Eneo Solar", "query": "Eneo GmbH", "match": "eneo gmbh"}
   ],
   "personio": [
+    {"id": "ju-niz-energy", "name": "ju:niz Energy", "feed": "https://juniz-energy.jobs.personio.com/xml"},
     {"id": "arteus-energy", "name": "Arteus Energy", "feed": "https://arteus-energy.jobs.personio.de/xml"},
     {"id": "coppen", "name": "COPPEN", "feed": "https://coppen.jobs.personio.de/xml"},
     {"id": "cube-green-energy-sunfarming", "name": "Cube Green Energy / SUNfarming", "feed": "https://cube-green-energy-topco-ltd.jobs.personio.com/xml"},
@@ -239,11 +241,9 @@
     {"id": "good-yields-capital", "name": "Good Yields Capital", "feed": "https://goodyields-capital-gmbh.jobs.personio.de/xml"},
     {"id": "energieversum", "name": "Energieversum", "feed": "https://energieversum.jobs.personio.de/xml"},
     {"id": "tauber-solar", "name": "TAUBER-SOLAR", "feed": "https://tauber-solar.jobs.personio.de/xml"},
-    {"id": "trawa", "name": "trawa", "feed": "https://trawa.jobs.personio.de/xml"},
     {"id": "kraftblock", "name": "Kraftblock", "feed": "https://kraftblock.jobs.personio.de/xml"},
     {"id": "polarstern", "name": "Polarstern", "feed": "https://polarstern-gmbh.jobs.personio.de/xml"},
     {"id": "buergerwerke", "name": "Bürgerwerke", "feed": "https://buergerwerke.jobs.personio.de/xml"},
-    {"id": "energiegewinner-egt", "name": "Energiegewinner (EGT)", "feed": "https://energiegewinner-egt.jobs.personio.de/xml"},
     {"id": "enerparc", "name": "Enerparc", "feed": "https://enerparc.jobs.personio.de/xml"}
   ],
   "recruitee": [
@@ -292,7 +292,8 @@
     {"id": "wegatech-greenergy", "name": "Wegatech Greenergy", "slug": "wegatech"}
   ],
   "ashby": [
-    {"id": "galvany", "name": "GALVANY", "board": "galvany"}
+    {"id": "galvany", "name": "GALVANY", "board": "galvany"},
+    {"id": "trawa", "name": "trawa", "board": "trawa"}
   ],
   "smartrecruiters": [
     {"id": "statkraft", "name": "Statkraft Germany", "company": "Statkraft1", "country": "de"},

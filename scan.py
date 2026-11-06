@@ -432,10 +432,46 @@ def scan_employers(days, details_cache):
 
 # ----------------------------------------------------------------------------- Personio / Recruitee / SmartRecruiters / Workday
 
+def scan_personio_json(e):
+    """Ersatz, wenn die XML-Liste abgeschaltet ist (404): die Karriereseite lädt ihre Liste aus /search.json
+    (ohne Datum und ohne Text — den liest die Morgenaufgabe bei Bedarf über die url)."""
+    base = e["feed"].split("/xml")[0]
+    d = http_get(f"{base}/search.json", headers={**UA, "Accept": "application/json"})
+    if not isinstance(d, list):
+        return None
+    loc_re = re.compile(e["location_regex"], re.I) if e.get("location_regex") else None
+    jobs = []
+    for p in d:
+        pid = str(p.get("id") or "")
+        title = p.get("name") or ""
+        office = p.get("office") or ""
+        if not pid or (loc_re and not loc_re.search(f"{office} {title}")):
+            continue
+        rec = {
+            "id": f"personio-{pid}",
+            "source": "Сайт компании",
+            "company": e["name"],
+            "title": title,
+            "location": office,
+            "department": p.get("department") or None,
+            "employment": p.get("employment_type"),
+            "schedule": p.get("schedule"),
+            "seniority": p.get("seniority"),
+            "published": None,
+            "url": f"{base}/job/{pid}",
+            "title_tier": title_tier(title),
+            "found_by": [f"Компании под наблюдением: {e['name']}"],
+        }
+        if rec["title_tier"] == "prefer" and strip_html(p.get("description") or ""):
+            rec["description"] = cut(strip_html(p["description"]))
+        jobs.append(rec)
+    return jobs
+
+
 def scan_personio(e):
     xml = http_get(e["feed"], headers=UA, as_json=False)
     if xml is None:
-        return None
+        return scan_personio_json(e)
     try:
         root = ET.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
     except Exception as ex:  # noqa: BLE001
@@ -721,10 +757,17 @@ def scan_ashby(e):
     return jobs
 
 
+def _title_key(t):
+    t = re.sub(r"\((?:[mwfdx]\s*/\s*){1,3}[mwfdx]\)|\(all genders\)|\(alle\)", " ", (t or "").lower())
+    return re.sub(r"[^0-9a-zäöüß]+", "", t)
+
+
 def scan_feeds(details_cache):
     out = {}
-    kinds = (("personio", scan_personio), ("recruitee", scan_recruitee), ("smartrecruiters", scan_smartrecruiters),
-             ("workday", scan_workday), ("join", lambda e: scan_join(e, details_cache)), ("ashby", scan_ashby))
+    # JOIN zuerst: bei Firmen mit zwei Systemen (ju:niz: JOIN und Personio) bleiben die JOIN-ids (wie seen in der
+    # Tabelle); vom zweiten System kommen nur Stellen mit neuem Titel dazu.
+    kinds = (("join", lambda e: scan_join(e, details_cache)), ("ashby", scan_ashby), ("personio", scan_personio),
+             ("recruitee", scan_recruitee), ("smartrecruiters", scan_smartrecruiters), ("workday", scan_workday))
     counts = {}
     for kind, fn in kinds:
         for e in CFG.get(kind, []):
@@ -737,6 +780,9 @@ def scan_feeds(details_cache):
             if jobs is None:
                 entry["error"] = (entry.get("error") or "") + f"{kind} не открылся; "
             else:
+                if entry["method"] != kind:  # zweites System derselben Firma: Dubletten nach Titel weglassen
+                    have = {_title_key(j.get("title")) for j in entry["jobs"]}
+                    jobs = [j for j in jobs if _title_key(j.get("title")) not in have]
                 entry["jobs"].extend(jobs)
                 entry["method"] = entry["method"] if entry["method"] == kind else f"{entry['method']}+{kind}"
                 counts[kind] = counts.get(kind, 0) + len(jobs)
