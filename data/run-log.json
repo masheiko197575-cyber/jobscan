@@ -1,0 +1,274 @@
+{
+ "counts": {
+  "boards": 157,
+  "candidates": 99,
+  "other": 167,
+  "watch": 957
+ },
+ "date": "2026-11-07",
+ "errors": [],
+ "generated": "2026-11-07T08:58:48Z",
+ "minutes": 26.1,
+ "stats": {
+  "atom_eejobs": {
+   "entries": 27,
+   "kept": 7
+  },
+  "atom_greenjobs": {
+   "entries": 135,
+   "kept": 7
+  },
+  "feeds": {
+   "companies": 80,
+   "failed": [],
+   "jobs": {
+    "ashby": 35,
+    "join": 88,
+    "personio": 315,
+    "recruitee": 5,
+    "smartrecruiters": 14,
+    "workday": 141
+   }
+  },
+  "jobboerse_demoted_no_industry": 40,
+  "jobboerse_details_fetched": 12,
+  "jobboerse_per_query": {
+   "DE: Agri-PV": 0,
+   "DE: BESS": 13,
+   "DE: Batteriegroßspeicher": 1,
+   "DE: Batteriespeicher": 25,
+   "DE: Battery Storage": 2,
+   "DE: Einspeisung": 5,
+   "DE: Energiedienstleistungen": 4,
+   "DE: Energiemanagement": 101,
+   "DE: Energiespeicher": 17,
+   "DE: Energiewende": 234,
+   "DE: Energy Storage": 7,
+   "DE: Erneuerbare Energien": 215,
+   "DE: Freiflächenanlagen": 9,
+   "DE: Großbatteriespeicher": 1,
+   "DE: Mieterstrom": 2,
+   "DE: Netzanschluss": 18,
+   "DE: PV": 149,
+   "DE: Photovoltaik": 174,
+   "DE: Renewable Energy": 3,
+   "DE: Solar": 101,
+   "DE: Solaranlagen": 35,
+   "DE: Solarenergie": 8,
+   "DE: Solarpark": 0,
+   "DE: Stromspeicher": 6,
+   "рядом: Agri-PV": 0,
+   "рядом: BESS": 0,
+   "рядом: Batteriegroßspeicher": 0,
+   "рядом: Batteriespeicher": 1,
+   "рядом: Battery Storage": 0,
+   "рядом: Einspeisung": 0,
+   "рядом: Energiedienstleistungen": 1,
+   "рядом: Energiemanagement": 11,
+   "рядом: Energiespeicher": 1,
+   "рядом: Energiewende": 10,
+   "рядом: Energy Storage": 0,
+   "рядом: Erneuerbare Energien": 11,
+   "рядом: Freiflächenanlagen": 1,
+   "рядом: Großbatteriespeicher": 0,
+   "рядом: Mieterstrom": 0,
+   "рядом: Netzanschluss": 0,
+   "рядом: PV": 11,
+   "рядом: Photovoltaik": 17,
+   "рядом: Renewable Energy": 0,
+   "рядом: Solar": 8,
+   "рядом: Solaranlagen": 0,
+   "рядом: Solarenergie": 2,
+   "рядом: Solarpark": 0,
+   "рядом: Stromspeicher": 1,
+   "удалённо: Agri-PV": 0,
+   "удалённо: BESS": 4,
+   "удалённо: Batteriegroßspeicher": 0,
+   "удалённо: Batteriespeicher": 2,
+   "удалённо: Battery Storage": 0,
+   "удалённо: Einspeisung": 2,
+   "удалённо: Energiedienstleistungen": 0,
+   "удалённо: Energiemanagement": 6,
+   "удалённо: Energiespeicher": 3,
+   "удалённо: Energiewende": 23,
+   "удалённо: Energy Storage": 1,
+   "удалённо: Erneuerbare Energien": 19,
+   "удалённо: Freiflächenanlagen": 0,
+   "удалённо: Großbatteriespeicher": 0,
+   "удалённо: Mieterstrom": 1,
+   "удалённо: Netzanschluss": 3,
+   "удалённо: PV": 9,
+   "удалённо: Photovoltaik": 10,
+   "удалённо: Renewable Energy": 1,
+   "удалённо: Solar": 14,
+   "удалённо: Solaranlagen": 2,
+   "удалённо: Solarenergie": 2,
+   "удалённо: Solarpark": 0,
+   "удалённо: Stromspeicher": 2
+  },
+  "jobboerse_tiers": {
+   "drop": 578,
+   "other": 127,
+   "prefer": 139
+  },
+  "jobboerse_unique": 844,
+  "jobspy": {
+   "abroad_dropped": {
+    "linkedin": 7
+   },
+   "kept": {
+    "Indeed": 2,
+    "LinkedIn": 54
+   },
+   "texts": {
+    "cached": 23,
+    "no_pv_bess_dropped": 135,
+    "read": 166,
+    "unreadable": 0
+   }
+  },
+  "sample_detail_keys": [
+   "aenderungsdatum",
+   "allianzpartnerName",
+   "allianzpartnerUrl",
+   "arbeitgeberKundennummerHash",
+   "artDerVerguetung",
+   "chiffrenummer",
+   "datumErsteVeroeffentlichung",
+   "eintrittszeitraum",
+   "firma",
+   "gehaltsspanneBis",
+   "gehaltsspanneVon",
+   "hauptberuf",
+   "istArbeitnehmerUeberlassung",
+   "istBehinderungGefordert",
+   "istBetreut",
+   "istGeringfuegigeBeschaeftigung",
+   "istPrivateArbeitsvermittlung",
+   "quereinstiegGeeignet",
+   "referenznummer",
+   "stellenangebotsBeschreibung",
+   "stellenangebotsTitel",
+   "stellenangebotsart",
+   "stellenlokationen",
+   "verguetungsangabe",
+   "veroeffentlichungszeitraum",
+   "vertragsdauer"
+  ],
+  "sample_item_keys": [
+   "aenderungsdatum",
+   "alleBerufe",
+   "arbeitszeitSchichtNachtWochenende",
+   "arbeitszeitTeilzeitAbend",
+   "arbeitszeitTeilzeitFlexibel",
+   "arbeitszeitTeilzeitNachmittag",
+   "arbeitszeitTeilzeitVormittag",
+   "arbeitszeitVollzeit",
+   "datumErsteVeroeffentlichung",
+   "eintrittszeitraum",
+   "entfernung",
+   "externeURL",
+   "firma",
+   "hauptberuf",
+   "homeofficemoeglich",
+   "istGeringfuegigeBeschaeftigung",
+   "quereinstiegGeeignet",
+   "referenznummer",
+   "stellenangebotsTitel",
+   "stellenangebotsart",
+   "stellenlokationen",
+   "verguetungsangabe",
+   "veroeffentlichungszeitraum",
+   "vertragsdauer"
+  ],
+  "serpapi": {
+   "boost": 2,
+   "configured": true,
+   "filters_seen": [
+    {
+     "name": "Letzte 3 Tage",
+     "options": [
+      "Gestern",
+      "Letzte 3 Tage",
+      "Letzte Woche",
+      "Letzter Monat"
+     ]
+    },
+    {
+     "name": "Letzte 3 Tage",
+     "options": [
+      "Gestern",
+      "Letzte 3 Tage",
+      "Letzte Woche",
+      "Letzter Monat"
+     ]
+    },
+    {
+     "name": "Homeoffice",
+     "options": []
+    },
+    {
+     "name": "Jobtyp",
+     "options": [
+      "Vollzeit",
+      "Teilzeit",
+      "Vertrag",
+      "Praktikum"
+     ]
+    },
+    {
+     "name": "Jobtyp",
+     "options": [
+      "Vollzeit",
+      "Teilzeit",
+      "Vertrag",
+      "Praktikum"
+     ]
+    }
+   ],
+   "left": 726,
+   "plan": "Free Plan",
+   "queries": [
+    "Commercial Asset Manager Photovoltaik",
+    "Projektkaufmann Energie",
+    "Netzanmeldung Photovoltaik",
+    "Auftragsmanagement Erneuerbare Energien",
+    "Project Support Erneuerbare Energien",
+    "Procurement Manager Battery Storage",
+    "Projektkoordinator Batteriespeicher",
+    "Sachbearbeiter Netzanschluss",
+    "Sachbearbeiter Einspeisung",
+    "Projektmanager Energiedienstleistungen",
+    "Stuttgart: Projektmanager Energie",
+    "Stuttgart: Koordinator Netzanschluss",
+    "Stuttgart: Sachbearbeiter Netzanschluss",
+    "Stuttgart: Projektmanager Energiedienstleistungen",
+    "Stuttgart: Projektmanager Photovoltaik",
+    "Stuttgart: Projektkoordinator Photovoltaik"
+   ],
+   "response_keys": [
+    "filters",
+    "jobs_results",
+    "serpapi_pagination"
+   ],
+   "results": 56,
+   "uds": true,
+   "used_today": 16
+  },
+  "watch_failed": [],
+  "xing": {
+   "abroad_dropped": 12,
+   "cards": 363,
+   "details_cached": 134,
+   "details_failed": 0,
+   "details_read": 4,
+   "kept": 31,
+   "no_pv_bess_dropped": 11,
+   "old_dropped": 84,
+   "search_failed": 0,
+   "searches": 20,
+   "title_dropped": 67,
+   "unique": 205
+  }
+ }
+}
