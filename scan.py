@@ -58,6 +58,7 @@ INDUSTRY_STRICT = re.compile(CFG.get("industry_strict_regex") or CFG["industry_r
 ADJACENT = re.compile(CFG["title_adjacent"], re.I) if CFG.get("title_adjacent") else None
 CORE = re.compile(CFG["title_core"], re.I) if CFG.get("title_core") else None
 SOFT = re.compile(CFG["title_soft"], re.I) if CFG.get("title_soft") else None
+GERMANY = {"DE", "DEU", "DEUTSCHLAND", "GERMANY"}
 PV_ONLY = re.compile(CFG.get("pv_only_regex") or CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
 MAX_DESC = int(CFG.get("max_description_chars", 4000))
 
@@ -793,7 +794,7 @@ def scan_sitemap(e, details_cache):
                 details_cache[key] = det
             time.sleep(0.7)
         det = det or {}
-        if det.get("countries") and "DE" not in det["countries"]:
+        if det.get("countries") and not any(c in GERMANY for c in det["countries"]):
             continue
         title = det.get("title") or rough
         rec = {"id": f"sm-{e['id']}-{m.group(1)}", "source": "Сайт компании", "company": e["name"], "title": title,
@@ -801,6 +802,8 @@ def scan_sitemap(e, details_cache):
                "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}
         if rec["title_tier"] == "prefer" and det.get("description"):
             rec["description"] = cut(det["description"])
+        if e.get("pv_only"):
+            rec["_text"] = det.get("description") or ""  # nur für den pv_only-Filter in scan_feeds
         jobs.append(rec)
     return jobs
 
@@ -863,7 +866,9 @@ def scan_feeds(details_cache):
                 # Arbeitgeber ohne PV/BESS-Schwerpunkt (Konzern, Stadtwerk): nur Stellen mit PV/Speicher/Netzanschluss
                 # im Titel oder mindestens zweimal im Text — sonst füllt der Standardtext der Firma die Liste
                 jobs = [j for j in jobs if PV_ONLY.search(j.get("title") or "")
-                        or len(PV_ONLY.findall(j.get("description") or "")) >= 2]
+                        or len(PV_ONLY.findall(j.get("_text") or j.get("description") or "")) >= 2]
+            for j in jobs or []:
+                j.pop("_text", None)
             entry = out.setdefault(e["id"], {"name": e["name"], "method": kind, "jobs": []})
             if jobs is None:
                 entry["error"] = (entry.get("error") or "") + f"{kind} не открылся; "
@@ -1600,6 +1605,7 @@ def write_dropped():
         if cur.get("last") != TODAY:
             cur["days"] = int(cur.get("days") or 0) + 1
         cur["last"] = TODAY
+        cur["soft"] = bool(d["soft"])
         roll[k] = cur
     save_json("disputed.json", {k: v for k, v in roll.items() if (v.get("last") or "") >= cutoff})
     STATS["dropped"] = {"total": len(uniq), "disputed": len(disputed), "soft": sum(1 for d in disputed if d["soft"])}
