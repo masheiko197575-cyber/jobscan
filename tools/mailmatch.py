@@ -1,6 +1,7 @@
 import json,re,sys,os,glob
 # Вакансии из писем-рассылок: отсев по названию по правилам сканера, сверка с таблицей и с файлом сканера.
-# Вход: /tmp/scan/cand_m*.jsonl (от помощников-писем), today.json, index_keys.txt. Выход: /tmp/scan/mail_cands.jsonl и счётчики.
+# Вход: /tmp/scan/cand_m*.jsonl (от помощников-писем), today.json, index_keys.txt. Выход: /tmp/scan/mail_cands.jsonl и счётчики
+# (bad_lines — строки, которые не разобрались: они в /tmp/scan/mail_bad.txt).
 sys.path.insert(0,'/tmp/scan')
 import dedupe as D
 PAT=(('li',r'linkedin\.com/(?:comm/)?jobs/view/(?:[^/?#]*-)?(\d{6,})'),('xing',r'xing\.com/jobs/[^?#]*?-(\d{6,})(?:[/?#]|$)'),
@@ -11,6 +12,20 @@ def ids(u):
     m=re.search(p,u or '',re.I)
     if m:out.add(k+':'+m.group(1).lower())
   return out
+TRACK=re.compile(r'^(utm_|trk|ref|mid|otp|lipi$|eid$|fbclid$|gclid$|mc_|tk$|qd$|rd$|alid$|bb$|from$|xpse$|xfps$|sc_|cid$|ecid$)',re.I)
+def clean(u):
+  """Ссылка из письма без хвоста отслеживания: по номеру вакансии — короткий адрес сайта, иначе без служебных параметров."""
+  u=(u or '').strip()
+  for k,p in PAT:
+    m=re.search(p,u,re.I)
+    if not m:continue
+    if k=='li':return 'https://www.linkedin.com/jobs/view/'+m.group(1)
+    if k=='indeed':return 'https://de.indeed.com/viewjob?jk='+m.group(1).lower()
+    return re.sub(r'[?#].*$','',u)
+  if '?' not in u:return re.sub(r'#.*$','',u)
+  head,q=u.split('?',1);q=re.sub(r'#.*$','',q)
+  keep=[x for x in q.split('&') if x and not TRACK.match(x.split('=')[0])]
+  return head+('?'+'&'.join(keep) if keep else '')
 def load(p,default):
   try:return json.load(open(p,encoding='utf-8'))
   except Exception:return default
@@ -40,14 +55,17 @@ def run(cands='/tmp/scan/cand_m*.jsonl',today='/tmp/scan/today.json',keys='/tmp/
   known=set(open(keys,encoding='utf-8').read().split()) if os.path.exists(keys) else set()
   kids=set()
   for k in known:kids|=ids(k)
-  st={'mail_total':0,'unique':0,'dropped_title':0,'known':0,'soft':0,'in_scanner':0,'with_text':0,'need_copy':0,'by_source':{}}
-  seen={};res=[]
+  st={'mail_total':0,'unique':0,'dropped_title':0,'known':0,'soft':0,'in_scanner':0,'with_text':0,'need_copy':0,'bad_lines':0,'by_source':{}}
+  seen={};res=[];bad=[]
   for f in sorted(glob.glob(cands)):
     for l in open(f,encoding='utf-8'):
+      if not l.strip():continue
       try:c=json.loads(l)
-      except Exception:continue
-      if not isinstance(c,dict) or not c.get('title'):continue
+      except Exception:c=None
+      if not isinstance(c,dict) or not c.get('title'):
+        st['bad_lines']+=1;bad.append(l.rstrip('\n')[:400]);continue
       st['mail_total']+=1
+      c['url']=clean(c.get('url'))
       ci=ids(c.get('url'));key=next(iter(sorted(ci)),None) or (D.norm_title(c.get('title')),D.norm_company(c.get('company')))
       if key in seen:
         o=seen[key]
@@ -65,7 +83,8 @@ def run(cands='/tmp/scan/cand_m*.jsonl',today='/tmp/scan/today.json',keys='/tmp/
         r=next((x for x in byt.get(D.norm_title(c.get('title')),[]) if D.same_company(c.get('company'),x.get('company'))),None)
       if r is not None:
         st['in_scanner']+=1;bs['in_scanner']+=1;c['matched']=True;c['scanSource']=r.get('source')
-        if r.get('url') and r['url']!=c.get('url'):c['otherUrls']=[c.get('url')] if c.get('url') else [];c['url']=r['url']
+        if r.get('url') and r['url']!=c.get('url'):
+          c['otherUrls']=[c['url']] if c.get('url') and not (ci&ids(r['url'])) else [];c['url']=r['url']
         for k in ('refnr','published','km','homeoffice'):
           if r.get(k) is not None:c[k]=r[k]
         if r.get('description'):c['description']=r['description'];st['with_text']+=1
@@ -73,5 +92,6 @@ def run(cands='/tmp/scan/cand_m*.jsonl',today='/tmp/scan/today.json',keys='/tmp/
       res.append(c)
   with open(out,'w',encoding='utf-8') as fo:
     for c in res:fo.write(json.dumps(c,ensure_ascii=False)+'\n')
+  if bad:open(os.path.join(os.path.dirname(out),'mail_bad.txt'),'w',encoding='utf-8').write('\n'.join(bad)+'\n')
   print(json.dumps(st,ensure_ascii=False))
 if __name__=='__main__':run(*sys.argv[1:])

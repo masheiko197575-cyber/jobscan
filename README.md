@@ -15,7 +15,7 @@ Inhalt:
 
 Daneben im Branch `data`: `dropped.json` (alle nach Titel verworfenen Stellen des Laufs mit dem auslösenden Wort), `disputed.json` (die strittigen der letzten 14 Tage), `history.json` (Zähler je Quelle, 21 Tage).
 
-`tools/tokens.py` (Token-Verbrauch der Morgenaufgabe nach Teilen) und `tools/mailmatch.py` (Stellen aus E-Mail-Alerts: Titel-Filter, Abgleich mit Tabelle und Scanner-Datei) lädt die Morgenaufgabe direkt von hier.
+`tools/tokens.py` (Token-Verbrauch der Morgenaufgabe nach Teilen), `tools/mailmatch.py` (Stellen aus E-Mail-Alerts: Links ohne Tracking, Titel-Filter, Abgleich mit Tabelle und Scanner-Datei) und `tools/atsnew.py` (Websuche auf Karriereseiten: Anfragen des Tages, neue Links ohne schon Gesehenes) lädt die Morgenaufgabe direkt von hier.
 
 Quellen und Filter stehen in `config.json`. Keine Zugangsdaten, keine personenbezogenen Daten.
 
