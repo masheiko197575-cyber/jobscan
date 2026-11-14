@@ -1,0 +1,41 @@
+import json,glob,os,re,datetime as D,collections as C
+# Расход токенов запуска: по моделям и по частям (главный агент и помощники по типам).
+# Тип помощника — метка в квадратных скобках в начале его задания: [письма], [описания], [компании], [поиск].
+t0=os.path.getmtime('/tmp/scan/start');T=D.datetime.fromtimestamp(t0,D.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+u={};first={}
+for f in glob.glob(os.path.expanduser('~/.claude/projects/**/*.jsonl'),recursive=True):
+  try:
+    if os.path.getmtime(f)<t0:continue
+    b=os.path.basename(f);sub=b.startswith('agent-') or '/subagents/' in f
+    for l in open(f,encoding='utf-8'):
+      try:d=json.loads(l);m=d['message']
+      except Exception:continue
+      if not isinstance(m,dict) or d.get('timestamp','')<T:continue
+      side=bool(d.get('isSidechain')) or sub
+      g=(d.get('agentId') or b) if side else 'main'
+      s=m.get('usage')
+      if isinstance(s,dict):u[m.get('id') or d.get('uuid')]=(m.get('model'),s,g)
+      elif side and g not in first and m.get('role')=='user':
+        c=m.get('content');first[g]=c if isinstance(c,str) else ' '.join(x.get('text','') for x in c if isinstance(x,dict))
+  except Exception:continue
+def kind(g):
+  if g=='main':return 'main'
+  t=first.get(g) or ''
+  m=re.match(r'\s*\[([^\]\n]{2,24})\]',t)
+  if m:return m.group(1).strip().lower()
+  for k,p in (('письма','get_thread|cand_m'),('описания','facts_'),('компании','cand_w'),('поиск','WebSearch')):
+    if re.search(p,t):return k
+  return 'прочее'
+tot=C.defaultdict(C.Counter);parts=C.defaultdict(C.Counter);ag=C.defaultdict(set);peak=0
+for mo,s,g in u.values():
+  n=(s.get('input_tokens') or 0)+(s.get('cache_creation_input_tokens') or 0);cr=s.get('cache_read_input_tokens') or 0;o=s.get('output_tokens') or 0
+  if not (n or cr or o):continue
+  k=kind(g)
+  for dst,key in ((tot,mo or '?'),(parts,k)):
+    dst[key]['new_input']+=n;dst[key]['cache_read']+=cr;dst[key]['output_tokens']+=o
+  parts[k]['turns']+=1;ag[k].add(g)
+  if k=='main':peak=max(peak,n+cr)
+for k in parts:
+  if k!='main':parts[k]['agents']=len(ag[k])
+if 'main' in parts:parts['main']['peak_context']=peak
+print(json.dumps({'tokens':tot,'parts':parts},ensure_ascii=False))

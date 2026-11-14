@@ -5,14 +5,20 @@ Quellen:
   * Arbeitsagentur Jobsuche-API (dokumentiert von bundesAPI/jobsuche-api, öffentlicher Client-Key)
     - Branchen-Suchwörter × (Deutschland | 75 km um Ludwigsburg | Homeoffice), Fenster N Tage
     - Arbeitgeber aus dem Beobachtungs-Verzeichnis (Suche nach Name)
-  * Personio-XML-Feeds, Recruitee-, SmartRecruiters-, Workday-, JOIN- und Ashby-APIs beobachteter Firmen
+  * Personio-XML-Feeds, Recruitee-, SmartRecruiters-, Workday- und Ashby-APIs, JOIN-Firmenseiten und Karriereseiten
+    mit Sitemap + JSON-LD (EnBW, Netze BW) beobachteter Firmen
   * Atom-Feeds von eejobs.de und greenjobs.de
-  * optional python-jobspy (Indeed, LinkedIn-Gastsuche) — fällt still aus, wenn blockiert
+  * optional python-jobspy: LinkedIn-Gastsuche (enge Begriffe) und Indeed (enge Begriffe + breite Branchenwörter)
+  * XING, öffentliche Suche: letzte 24 Stunden (enge Begriffe + breite Branchenwörter), letzte Woche (enge Begriffe)
+  * Google for Jobs über SerpApi
+Die Quellen laufen nebeneinander (Threads); fällt eine aus, läuft der Rest weiter.
 
-Ergebnis: data/today.json (+ data/seen.json, data/details.json, data/run-log.json).
+Ergebnis: data/today.json (+ seen.json, details.json, run-log.json, history.json, dropped.json, disputed.json).
+tools/tokens.py und tools/mailmatch.py lädt die Morgenaufgabe direkt aus dem Repository.
 Keine Zugangsdaten, keine personenbezogenen Daten.
 """
 import base64
+import concurrent.futures as cf
 import hashlib
 import datetime as dt
 import html
@@ -25,7 +31,7 @@ import time
 import xml.etree.ElementTree as ET
 
 import requests
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, "data")
@@ -51,6 +57,8 @@ INDUSTRY = re.compile(CFG["industry_regex"], re.I)
 INDUSTRY_STRICT = re.compile(CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
 ADJACENT = re.compile(CFG["title_adjacent"], re.I) if CFG.get("title_adjacent") else None
 CORE = re.compile(CFG["title_core"], re.I) if CFG.get("title_core") else None
+SOFT = re.compile(CFG["title_soft"], re.I) if CFG.get("title_soft") else None
+PV_ONLY = re.compile(CFG.get("pv_only_regex") or CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
 MAX_DESC = int(CFG.get("max_description_chars", 4000))
 
 
@@ -118,6 +126,28 @@ def title_tier(title):
     if PREF.search(t):
         return "prefer"
     return "other"
+
+
+DROPPED = []  # nach Titel verworfene Stellen dieses Laufs (data/dropped.json)
+
+
+def drop_why(title):
+    """Wörter, an denen der Titel scheiterte; role: ohne sie bleibt noch ein Rollenwort im Titel (strittig);
+    soft: alle diese Wörter sind «weich» (config title_soft, oder Senior neben Junior) und der Titel nennt eine Rolle —
+    solche Titel behält der Vorfilter für Stellen aus E-Mails (Morgenaufgabe, mailmatch)."""
+    t = title or ""
+    hits = [m.group(0) for m in EXCL.finditer(t)]
+    why = sorted({h.lower() for h in hits})
+    if not why and ADJACENT and ADJACENT.search(t):
+        return ["nur " + ADJACENT.search(t).group(0).lower()], False, False
+    junior = bool(re.search(r"junior", t, re.I))
+    soft = bool(hits) and all((SOFT and SOFT.fullmatch(h)) or (junior and re.match(r"senior|sr\.", h, re.I)) for h in hits)
+    return why, bool(PREF.search(EXCL.sub(" ", t))), bool(soft and PREF.search(t))
+
+
+def note_drop(title, company, source):
+    why, role, soft = drop_why(title)
+    DROPPED.append({"t": (title or "")[:140], "c": (company or "")[:60], "s": source, "w": why, "role": role, "soft": soft})
 
 
 # ----------------------------------------------------------------------------- HTTP
@@ -359,6 +389,7 @@ def scan_jobboerse(details_cache):
         rec["title_tier"] = tier
         if tier == "drop":
             tiers["drop"] += 1
+            note_drop(rec["title"], rec.get("company"), "Jobbörse")
         else:
             tiers[tier].append(rec)
     STATS["jobboerse_tiers"] = {"prefer": len(tiers["prefer"]), "other": len(tiers["other"]), "drop": tiers["drop"]}
@@ -541,11 +572,24 @@ def scan_recruitee(e):
 
 def scan_smartrecruiters(e):
     base = f"https://api.smartrecruiters.com/v1/companies/{e['company']}/postings"
-    d = http_get(base, {"limit": 100}, headers=UA)
-    if not d:
-        return None
+    posts, offset = [], 0
+    while offset < 1000:
+        params = {"limit": 100, "offset": offset}
+        if e.get("country"):
+            params["country"] = e["country"]
+        d = http_get(base, params, headers=UA)
+        if not d:
+            if offset == 0:
+                return None
+            break
+        content = d.get("content") or []
+        posts.extend(content)
+        offset += 100
+        if not content or offset >= int(d.get("totalFound") or 0):
+            break
+        time.sleep(0.3)
     jobs = []
-    for p in d.get("content", []):
+    for p in posts:
         loc = p.get("location") or {}
         country = (loc.get("country") or "").lower()
         if e.get("country") and country and country != e["country"].lower():
@@ -638,40 +682,31 @@ def join_page(url):
 
 
 def scan_join(e, details_cache):
-    """JOIN (join.com): Die Firmenseite zeigt nur 5 Stellen, ihr ?page=N liefert oft die falsche Seite.
-    Vollständig ist die öffentliche Liste /api/public/companies/<Firmen-ID>/jobs (pageSize nur 5 erlaubt).
-    id = Nummer aus der Stellen-URL (wie im Feld seen der Tabelle); JOIN vergibt sie beim Auffrischen neu."""
+    """JOIN (join.com): Die Firmenseite zeigt 5 Stellen je Seite (?page=N). Die öffentliche Liste
+    /api/public/companies/<ID>/jobs gibt es seit November 2026 nicht mehr (404). Hinter der letzten echten Seite
+    liefert JOIN die vorige noch einmal (pagination.page ≠ N) — dort endet das Blättern; pagination.total zählt die
+    Initiativbewerbung mit. id = Nummer aus der Stellen-URL (wie im Feld seen der Tabelle); JOIN vergibt sie beim
+    Auffrischen neu."""
     slug = e["slug"]
     base = f"https://join.com/companies/{slug}"
-    key = f"join-company:{slug}"
-    cid = (details_cache.get(key) or {}).get("company_id")
-    first = None
-    if not cid:
-        first = join_page(base)
-        if first is None:
-            return None
-        cid = (first.get("company") or {}).get("id")
-        if not cid:
-            err(f"JOIN {e['name']}: Firmen-ID nicht gefunden")
-            return None
-        details_cache[key] = {"company_id": cid, "cached_at": TODAY}
-    items, page, pages, complete = [], 1, 1, True
-    while page <= pages and page <= 40:
-        d = http_get(f"https://join.com/api/public/companies/{cid}/jobs", {"page": page, "pageSize": 5},
-                     headers={**UA, "Accept": "application/json"})
-        if not isinstance(d, dict):
+    first = join_page(base)
+    if first is None:
+        return None
+    jl = first.get("jobs") or {}
+    items = list(jl.get("items") or [])
+    pag = jl.get("pagination") or {}
+    total, pages = int(pag.get("total") or 0), int(pag.get("pageCount") or 1)
+    complete = True
+    for pno in range(2, min(pages, 40) + 1):
+        time.sleep(0.6)
+        d = join_page(f"{base}?page={pno}")
+        if d is None:
             complete = False
-            details_cache.pop(key, None)  # Firmen-ID beim nächsten Lauf neu holen
             break
-        items.extend(d.get("items") or [])
-        pages = int((d.get("pagination") or {}).get("pageCount") or 1)
-        page += 1
-        time.sleep(0.4)
-    if not items and not complete:  # API kaputt: wenigstens die ersten 5 von der Firmenseite
-        first = first if first is not None else join_page(base)
-        if not first:
-            return None
-        items = (first.get("jobs") or {}).get("items") or []
+        jl = d.get("jobs") or {}
+        if int((jl.get("pagination") or {}).get("page") or 0) != pno:
+            break
+        items.extend(jl.get("items") or [])
     jobs, ids = [], set()
     for it in items:
         idp = it.get("idParam") or ""
@@ -718,8 +753,55 @@ def scan_join(e, details_cache):
                 if c.get("updated"):
                     rec["updated"] = c["updated"]
         jobs.append(rec)
-    if not complete:
-        err(f"JOIN {e['name']}: Liste unvollständig ({len(jobs)} gelesen)")
+    if not complete or (total and len(ids) < total - 1):
+        err(f"JOIN {e['name']}: Liste unvollständig ({len(ids)} von {total} gelesen)")
+    return jobs
+
+
+def scan_sitemap(e, details_cache):
+    """Karriereseiten mit sitemap.xml und JSON-LD (JobPosting) auf der Stellenseite — z. B. EnBW und Netze BW (Phenom).
+    Der Titel kommt zuerst grob aus der Adresse (für den Titel-Filter), Text und Datum von der Stellenseite
+    (Cache "sm:<Adresse>", je Lauf höchstens max_details neue Seiten)."""
+    def fetch(url):
+        raw = http_get(url, headers=LI_HEADERS, as_json=False)
+        return None if raw is None else (raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw)
+
+    xml = fetch(e["sitemap"])
+    if xml is None:
+        return None
+    locs = re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", xml)
+    if "<sitemapindex" in xml:
+        locs = []
+        for sm in re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", xml)[:10]:
+            sub = fetch(html.unescape(sm))
+            locs += re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", sub or "")
+            time.sleep(0.3)
+    rx = re.compile(e.get("job_regex") or r"/job/([^/]+)/([^/?#]+)")
+    max_new, fetched, jobs = int(e.get("max_details", 80)), 0, []
+    for url in dict.fromkeys(html.unescape(u) for u in locs):
+        m = rx.search(url)
+        if not m:
+            continue
+        rough = re.sub(r"\s+", " ", re.sub(r"\b[wmdfx]( [wmdfx]){1,2}\b", " ", unquote(m.group(2)).replace("-", " "))).strip()
+        key = f"sm:{url}"
+        det = details_cache.get(key)
+        if det is None and title_tier(rough) != "drop" and fetched < max_new:
+            page = fetch(url)
+            fetched += 1
+            det = xing_details(page) if page else None
+            if det:
+                details_cache[key] = det
+            time.sleep(0.7)
+        det = det or {}
+        if det.get("countries") and "DE" not in det["countries"]:
+            continue
+        title = det.get("title") or rough
+        rec = {"id": f"sm-{e['id']}-{m.group(1)}", "source": "Сайт компании", "company": e["name"], "title": title,
+               "location": det.get("location") or "", "published": det.get("published"), "url": url,
+               "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}
+        if rec["title_tier"] == "prefer" and det.get("description"):
+            rec["description"] = cut(det["description"])
+        jobs.append(rec)
     return jobs
 
 
@@ -767,7 +849,8 @@ def scan_feeds(details_cache):
     # JOIN zuerst: bei Firmen mit zwei Systemen (ju:niz: JOIN und Personio) bleiben die JOIN-ids (wie seen in der
     # Tabelle); vom zweiten System kommen nur Stellen mit neuem Titel dazu.
     kinds = (("join", lambda e: scan_join(e, details_cache)), ("ashby", scan_ashby), ("personio", scan_personio),
-             ("recruitee", scan_recruitee), ("smartrecruiters", scan_smartrecruiters), ("workday", scan_workday))
+             ("recruitee", scan_recruitee), ("smartrecruiters", scan_smartrecruiters), ("workday", scan_workday),
+             ("sitemap", lambda e: scan_sitemap(e, details_cache)))
     counts = {}
     for kind, fn in kinds:
         for e in CFG.get(kind, []):
@@ -776,6 +859,11 @@ def scan_feeds(details_cache):
             except Exception as ex:  # noqa: BLE001
                 err(f"{kind} {e.get('name')}: {ex}")
                 jobs = None
+            if jobs and e.get("pv_only"):
+                # Arbeitgeber ohne PV/BESS-Schwerpunkt (Konzern, Stadtwerk): nur Stellen mit PV/Speicher/Netzanschluss
+                # im Titel oder mindestens zweimal im Text — sonst füllt der Standardtext der Firma die Liste
+                jobs = [j for j in jobs if PV_ONLY.search(j.get("title") or "")
+                        or len(PV_ONLY.findall(j.get("description") or "")) >= 2]
             entry = out.setdefault(e["id"], {"name": e["name"], "method": kind, "jobs": []})
             if jobs is None:
                 entry["error"] = (entry.get("error") or "") + f"{kind} не открылся; "
@@ -821,6 +909,7 @@ def scan_atom():
             link = (link_el.get("href") if link_el is not None else "") or gx("id")
             summary = strip_html(gx("summary") or gx("content"))
             if title_tier(title) == "drop":
+                note_drop(title, gx("author"), e["name"])
                 continue
             if not INDUSTRY.search(title + " " + summary):
                 continue
@@ -919,6 +1008,7 @@ def scan_jobspy(details_cache=None):
                 title = str(row.get("title") or "")
                 tier = title_tier(title)
                 if tier == "drop":
+                    note_drop(title, str(row.get("company") or ""), {"indeed": "Indeed", "linkedin": "LinkedIn"}.get(site, site))
                     continue
                 desc = row.get("description")
                 desc = "" if desc is None or (isinstance(desc, float)) else str(desc)
@@ -985,6 +1075,91 @@ def scan_jobspy(details_cache=None):
     log(f"JobSpy: {len(out)} Treffer {kept}, außerhalb Deutschlands verworfen: {abroad}, Texte: {det}")
     return list(out.values())
 
+
+
+def scan_indeed(details_cache=None):
+    """Indeed über JobSpy: enge Begriffe (Rolle + Branche) und breite Branchenwörter wie in den Indeed-E-Mail-Alerts —
+    so kommen auch Stellen ohne «Photovoltaik» im Titel. Indeed liefert den Text mit: Titel-Filter und PV/BESS-Prüfung
+    wie überall. Gleichlautende Stellen einer Firma an vielen Orten bleiben einmal stehen (also = weitere Orte)."""
+    cfg = CFG.get("indeed") or {}
+    if not cfg.get("enabled", True):
+        return []
+    try:
+        from jobspy import scrape_jobs  # type: ignore
+    except Exception as ex:  # noqa: BLE001
+        err(f"jobspy nicht verfügbar: {ex}")
+        return []
+    st = {"searches": 0, "failed": 0, "raw": 0, "abroad_dropped": 0, "title_dropped": 0, "no_pv_bess_dropped": 0, "collapsed": 0, "kept": 0}
+    plan = [(t, int(cfg.get("results_wanted", 40))) for t in (cfg.get("terms") or (CFG.get("jobspy") or {}).get("terms", []))]
+    plan += [(t, int(cfg.get("results_wanted_broad", 200))) for t in cfg.get("broad_terms", [])]
+    out, gone = {}, set()
+    for term, want in plan:
+        st["searches"] += 1
+        try:
+            df = scrape_jobs(site_name=["indeed"], search_term=term, location=cfg.get("location", "Deutschland"),
+                             country_indeed=cfg.get("country", "germany"), hours_old=int(cfg.get("hours_old", 48)),
+                             results_wanted=want, description_format="markdown", verbose=0)
+        except Exception as ex:  # noqa: BLE001
+            st["failed"] += 1
+            err(f"jobspy indeed «{term}»: {str(ex)[:120]}")
+            time.sleep(3)
+            continue
+        for _, row in (df.iterrows() if df is not None and len(df) else []):
+            url = str(row.get("job_url") or "")
+            if not url or url in gone:
+                continue
+            if url in out:
+                if f"indeed: {term}" not in out[url]["found_by"]:
+                    out[url]["found_by"].append(f"indeed: {term}")
+                continue
+            st["raw"] += 1
+            loc = row.get("location")
+            loc = "" if loc is None or isinstance(loc, float) else str(loc)
+            title, company = str(row.get("title") or ""), str(row.get("company") or "")
+            if not in_germany(loc):
+                st["abroad_dropped"] += 1
+                gone.add(url)
+                continue
+            tier = title_tier(title)
+            if tier == "drop":
+                st["title_dropped"] += 1
+                gone.add(url)
+                note_drop(title, company, "Indeed")
+                continue
+            desc = row.get("description")
+            desc = "" if desc is None or isinstance(desc, float) else str(desc)
+            if desc and not INDUSTRY_STRICT.search(f"{title} {company} {desc}"):
+                st["no_pv_bess_dropped"] += 1
+                gone.add(url)
+                continue
+            dp = row.get("date_posted")
+            out[url] = {
+                "id": f"indeed-{re.sub(r'[^0-9a-zA-Z]+', '-', url)[-50:]}",
+                "source": "Indeed",
+                "title": title,
+                "company": company,
+                "location": loc,
+                "remote": bool(row.get("is_remote")) if row.get("is_remote") is not None else None,
+                "published": str(dp)[:10] if dp is not None and str(dp) not in ("NaT", "nan", "None") else None,
+                "url": url,
+                "title_tier": tier,
+                "description": cut(strip_html(desc)) if desc else None,
+                "found_by": [f"indeed: {term}"],
+            }
+        time.sleep(1.5)
+    kept, groups = [], {}
+    for rec in out.values():
+        k = (rec["company"].lower(), re.sub(r"\s+in\s+[A-ZÄÖÜ][\w .()/-]*$", "", rec["title"]).lower()[:60])
+        if k in groups:
+            groups[k]["also"] = groups[k].get("also", 0) + 1
+            st["collapsed"] += 1
+        else:
+            groups[k] = rec
+            kept.append(rec)
+    st["kept"] = len(kept)
+    STATS["indeed"] = st
+    log(f"Indeed: {st}")
+    return kept
 
 
 # ----------------------------------------------------------------------------- XING (öffentliche Jobsuche)
@@ -1062,32 +1237,46 @@ def scan_xing(details_cache):
     st = {"searches": 0, "search_failed": 0, "cards": 0, "unique": 0, "title_dropped": 0, "details_read": 0,
           "details_cached": 0, "details_failed": 0, "abroad_dropped": 0, "old_dropped": 0, "no_pv_bess_dropped": 0, "kept": 0}
     found, fails = {}, 0
-    for term in terms:
+    # Die Suche ohne Datumsfilter zeigt Tag für Tag dieselben Stellen (Reihenfolge nach Relevanz). Darum:
+    # «letzte 24 Stunden» für enge Begriffe und breite Branchenwörter (bis pages_24h Seiten), dazu als Netz
+    # «letzte Woche» für die engen Begriffe. sincePeriod ist der Datumsfilter der XING-Suche (Probe 14.11.2026).
+    plan = [(t, "LAST_24_HOURS", int(cfg.get("pages_24h", 3))) for t in list(terms) + list(cfg.get("broad_terms") or [])]
+    plan += [(t, "LAST_WEEK", 1) for t in terms]
+    for term, since, max_pages in plan:
         if fails >= 3:
             err("XING: Suche dreimal hintereinander ohne Antwort — abgebrochen")
             break
-        page = xing_get("https://www.xing.com/jobs/search?" + urlencode({"keywords": term, "location": cfg.get("location", "Deutschland")}))
-        st["searches"] += 1
-        if not page:
-            st["search_failed"] += 1
-            fails += 1
-            time.sleep(5)
-            continue
-        fails = 0
-        for c in xing_cards(page):
-            st["cards"] += 1
-            if c["id"] in found:
-                if term not in found[c["id"]]["terms"]:
-                    found[c["id"]]["terms"].append(term)
-            else:
-                found[c["id"]] = {**c, "terms": [term]}
-        time.sleep(random.uniform(2, 4))
+        for pno in range(1, max_pages + 1):
+            q = {"keywords": term, "location": cfg.get("location", "Deutschland"), "sincePeriod": since}
+            if pno > 1:
+                q["page"] = pno
+            page = xing_get("https://www.xing.com/jobs/search?" + urlencode(q))
+            st["searches"] += 1
+            if not page:
+                st["search_failed"] += 1
+                fails += 1
+                time.sleep(5)
+                break
+            fails = 0
+            cards, new = xing_cards(page), 0
+            for c in cards:
+                st["cards"] += 1
+                if c["id"] in found:
+                    if term not in found[c["id"]]["terms"]:
+                        found[c["id"]]["terms"].append(term)
+                else:
+                    found[c["id"]] = {**c, "terms": [term]}
+                    new += 1
+            time.sleep(random.uniform(2, 4))
+            if len(cards) < 4 or not new:
+                break
     st["unique"] = len(found)
     out, in_row = [], 0
     for xid, c in found.items():
         tier = title_tier(c["title"])
         if tier == "drop":
             st["title_dropped"] += 1
+            note_drop(c["title"], c["company"], "XING")
             continue
         det = details_cache.get(f"xing:{xid}")
         if det:
@@ -1296,6 +1485,7 @@ def scan_serpapi():
                 old += 1
                 continue
             if tier == "drop":
+                note_drop(title, j.get("company_name"), "Google Jobs")
                 continue
             desc = strip_html(j.get("description") or "")
             if not INDUSTRY.search(title + " " + desc[:3000]):
@@ -1355,13 +1545,135 @@ def scan_serpapi():
 
 # ----------------------------------------------------------------------------- main
 
+def run_parallel(tasks):
+    """Quellen nebeneinander abfragen: jede hat ihren eigenen Server und ihre eigenen Pausen.
+    Fällt eine Quelle mit einem Fehler aus, läuft der Rest weiter (Ergebnis None)."""
+    res, took = {}, {}
+
+    def wrap(item):
+        name, fn = item
+        t = time.time()
+        try:
+            return name, fn(), None, round((time.time() - t) / 60, 1)
+        except Exception as ex:  # noqa: BLE001
+            return name, None, ex, round((time.time() - t) / 60, 1)
+
+    with cf.ThreadPoolExecutor(max_workers=len(tasks)) as ex:
+        for name, val, exc, mins in ex.map(wrap, list(tasks.items())):
+            took[name] = mins
+            if exc is not None:
+                err(f"Quelle {name}: abgebrochen: {exc}")
+            res[name] = val
+    STATS["minutes_by_source"] = took
+    return res
+
+
+def safe(fn, *a):
+    try:
+        return fn(*a) or []
+    except Exception as ex:  # noqa: BLE001
+        err(f"{fn.__name__}: abgebrochen: {ex}")
+        return []
+
+
+def write_dropped():
+    """data/dropped.json: alle nach Titel verworfenen Stellen des Laufs; data/disputed.json: die strittigen der
+    letzten 14 Tage (Rollenwort im Titel, PV/Speicher im Titel oder Firma mit eigenem Feed) für die Wochenübersicht."""
+    seen_k, uniq = set(), []
+    for d in list(DROPPED):
+        k = (_title_key(d["t"]), (d["c"] or "").lower())
+        if k not in seen_k:
+            seen_k.add(k)
+            uniq.append(d)
+    by = {}
+    for d in uniq:
+        for w in d["w"]:
+            by[w] = by.get(w, 0) + 1
+    disputed = [d for d in uniq if (d["role"] or d["soft"]) and (d["s"] == "Лента компании" or (CORE and CORE.search(f"{d['t']} {d['c']}")))]
+    save_json("dropped.json", {"date": TODAY, "total": len(uniq), "by_word": dict(sorted(by.items(), key=lambda x: -x[1])),
+                               "disputed": disputed, "all": uniq})
+    roll = load_json("disputed.json", {})
+    cutoff = (NOW - dt.timedelta(days=14)).date().isoformat()
+    for d in disputed:
+        k = f"{_title_key(d['t'])}|{(d['c'] or '').lower()}"
+        cur = roll.get(k) or {"t": d["t"], "c": d["c"], "s": d["s"], "w": d["w"], "first": TODAY, "days": 0}
+        if cur.get("last") != TODAY:
+            cur["days"] = int(cur.get("days") or 0) + 1
+        cur["last"] = TODAY
+        roll[k] = cur
+    save_json("disputed.json", {k: v for k, v in roll.items() if (v.get("last") or "") >= cutoff})
+    STATS["dropped"] = {"total": len(uniq), "disputed": len(disputed), "soft": sum(1 for d in disputed if d["soft"])}
+
+
+def health(prefer, boards, minutes):
+    """Zähler je Quelle (data/history.json, 21 Tage) und Warnungen für die Zusammenfassung der Morgenaufgabe:
+    Quelle ausgefallen, unvollständig oder deutlich unter ihrem üblichen Wert."""
+    counts = {"Jobbörse": int(STATS.get("jobboerse_unique") or 0), "кандидаты Jobbörse": len(prefer)}
+    for k, v in ((STATS.get("feeds") or {}).get("jobs") or {}).items():
+        counts[f"ленты {k}"] = int(v)
+    for src in ("LinkedIn", "Indeed", "XING", "Google Jobs", "eejobs.de", "greenjobs.de"):
+        counts[src] = 0
+    for b in boards:
+        counts[b.get("source")] = counts.get(b.get("source"), 0) + 1
+    hist = [h for h in load_json("history.json", []) if isinstance(h, dict)]
+    prev = [h for h in hist if h.get("date") != TODAY][-14:]
+    alerts = []
+    if not counts["Jobbörse"]:
+        alerts.append("Jobbörse не ответила")
+    for e in ERRORS:
+        m = re.match(r"(?:Quelle )?(\S+): abgebrochen", e)
+        if m:
+            alerts.append(f"источник {m.group(1).replace('scan_', '')} прервался с ошибкой")
+    join_bad = sum(1 for e in ERRORS if e.startswith("JOIN") and "unvollständig" in e)
+    if join_bad >= 3:
+        alerts.append(f"JOIN: список вакансий неполный у {join_bad} из {len(CFG.get('join', []))} компаний")
+    failed = (STATS.get("feeds") or {}).get("failed") or []
+    if failed:
+        alerts.append("ленты компаний не загрузились: " + ", ".join(failed[:6]) + (f" и ещё {len(failed) - 6}" if len(failed) > 6 else ""))
+    hosts = {}
+    for e in ERRORS:
+        m = re.match(r"(?:GET|POST) https?://([^/ ]+)", e)
+        if m:
+            hosts[m.group(1)] = hosts.get(m.group(1), 0) + 1
+    if hosts:
+        alerts.append("не отвечают: " + ", ".join(f"{h} ({n})" for h, n in sorted(hosts.items(), key=lambda x: -x[1])[:5]))
+    for src, n in counts.items():
+        vals = sorted(int((h.get("counts") or {}).get(src) or 0) for h in prev if src in (h.get("counts") or {}))
+        if len(vals) < 4:
+            continue
+        med = vals[len(vals) // 2]
+        if (med >= 3 and n == 0) or (med >= 8 and n < 0.4 * med):
+            alerts.append(f"{src}: {n} (обычно около {med})")
+    left = (STATS.get("serpapi") or {}).get("left")
+    if isinstance(left, int) and left < 60:
+        alerts.append(f"SerpApi: осталось {left} поисков")
+    if minutes > 45:
+        alerts.append(f"прогон длился {minutes} мин (лимит 60)")
+    hist = [h for h in hist if h.get("date") != TODAY] + [{"date": TODAY, "generated": NOW.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                                            "minutes": minutes, "counts": counts, "errors": len(ERRORS), "alerts": len(alerts)}]
+    save_json("history.json", hist[-21:])
+    return alerts
+
+
 def main():
     details_cache = load_json("details.json", {})
     seen = load_json("seen.json", {"refnr": {}})
 
-    prefer, other, alljobs = scan_jobboerse(details_cache)
-    watch = scan_employers(int(CFG.get("employer_days", 30)), details_cache)
-    for cid, entry in scan_feeds(details_cache).items():
+    def jobboerse():
+        prefer, other, _ = scan_jobboerse(details_cache)
+        return prefer, other, scan_employers(int(CFG.get("employer_days", 30)), details_cache)
+
+    res = run_parallel({
+        "jobboerse": jobboerse,
+        "feeds": lambda: scan_feeds(details_cache),
+        "atom_xing": lambda: safe(scan_atom) + safe(scan_xing, details_cache),
+        "jobspy": lambda: safe(scan_indeed, details_cache) + safe(scan_jobspy, details_cache),
+        "serpapi": scan_serpapi,
+    })
+    if res.get("jobboerse") is None:
+        raise RuntimeError("Jobbörse-Suche abgebrochen")
+    prefer, other, watch = res["jobboerse"]
+    for cid, entry in (res.get("feeds") or {}).items():
         cur = watch.get(cid)
         if cur:
             cur["jobs"].extend(entry.get("jobs", []))
@@ -1370,15 +1682,16 @@ def main():
                 cur["error"] = entry["error"]
         else:
             watch[cid] = entry
-    boards = scan_atom()
-    boards += scan_jobspy(details_cache)
-    boards += scan_xing(details_cache)
-    boards += scan_serpapi()
+    boards = (res.get("atom_xing") or []) + (res.get("jobspy") or []) + (res.get("serpapi") or [])
 
     # beobachtete Firmen: ausgeschlossene Titel (Monteure, Vertrieb, IT …) nicht in die Datei
     for entry in watch.values():
         allj = entry.get("jobs") or []
         entry["jobs_total"] = len(allj)
+        src = "Jobbörse по имени" if entry.get("method") == "jobboerse" else "Лента компании"
+        for j in allj:
+            if j.get("title_tier") == "drop":
+                note_drop(j.get("title"), entry.get("name"), src)
         entry["jobs"] = [j for j in allj if j.get("title_tier") != "drop"]
     # Quelle nicht geladen und keine Stellen: Firma nicht in watch aufnehmen — sonst hält die Morgenaufgabe sie
     # für erledigt und prüft sie nicht (so fielen 05.–06.11. fünf Personio-Firmen still aus).
@@ -1386,14 +1699,25 @@ def main():
     for k in failed:
         del watch[k]
     STATS["watch_failed"] = failed
+    # «blind»: Firma wird nur über die Jobbörse nach Name gesucht, dort gab es in 30 Tagen keine einzige Stelle von ihr
+    blind = sorted(v["name"] for v in watch.values() if v.get("method") == "jobboerse" and not v.get("jobs_total"))
+    STATS["blind_count"] = len(blind)
+    write_dropped()
 
     # neu / schon gesehen (nur Information; die Tabelle gleicht selbst ab)
     for rec in prefer + other:
         rec["seen_before"] = rec["refnr"] in seen["refnr"]
         seen["refnr"][rec["refnr"]] = TODAY
+    # Boards: first_seen = Zeitpunkt des Laufs, in dem der Scanner die Stelle zum ersten Mal sah — die Morgenaufgabe
+    # nimmt nur Stellen, die seit ihrem letzten Lauf dazugekommen sind
+    bseen = seen.setdefault("boards", {})
+    stamp = NOW.strftime("%Y-%m-%dT%H:%M:%SZ")
+    for b in boards:
+        b["first_seen"] = bseen.setdefault(str(b.get("id") or b.get("url")), stamp)
     # seen.json und details.json auf 45 Tage begrenzen
     cutoff = (NOW - dt.timedelta(days=45)).date().isoformat()
     seen["refnr"] = {k: v for k, v in seen["refnr"].items() if v >= cutoff}
+    seen["boards"] = {k: v for k, v in seen["boards"].items() if v[:10] >= cutoff}
     li_cutoff = (NOW - dt.timedelta(days=7)).date().isoformat()  # LinkedIn-Texte nur 7 Tage
     details_cache = {k: v for k, v in details_cache.items()
                      if (v.get("cached_at") or "") >= (li_cutoff if k.startswith("li:") else cutoff)}
@@ -1403,23 +1727,29 @@ def main():
         "date": TODAY,
         "days": CFG.get("days", 7),
         "schema": {
+            "alerts": "Warnungen des Scanners (Quelle ausgefallen, unvollständig oder deutlich unter ihrem üblichen Wert) — in die Zusammenfassung übernehmen",
+            "filters": "Titel-Regeln des Scanners (Regex, ohne Groß-/Kleinschreibung) für eigene Vorfilter, z. B. Stellen aus E-Mails",
+            "blind": "beobachtete Firmen, von denen die Jobbörse seit 30 Tagen keine einzige Stelle zeigt — dort nicht sichtbar",
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
             "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby): id → {name, method, jobs[]}; jobs mit title_tier prefer haben meist description (Personio über search.json ohne); JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten). Firmen, deren Quelle heute nicht lud, fehlen hier (stats.watch_failed) — selbst prüfen",
-            "boards": "eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
+            "boards": "eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); first_seen = wann der Scanner die Stelle zum ersten Mal sah (nur Stellen nach dem letzten eigenen Lauf nehmen); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
         },
         "candidates": sorted(prefer, key=lambda r: (r.get("km") is None, r.get("km") or 0, r.get("company") or "")),
         "other": [{k: r.get(k) for k in ("refnr", "title", "company", "location", "km", "published", "url", "homeoffice", "found_by")} for r in sorted(other, key=lambda r: (r.get("km") is None, r.get("km") or 0))],
         "watch": watch,
         "boards": boards,
+        "blind": blind,
+        "filters": {k: CFG.get(k) for k in ("title_exclude", "title_prefer", "title_adjacent", "title_core", "title_soft", "industry_strict_regex")},
         "stats": STATS,
         "errors": ERRORS,
         "minutes": round((time.time() - START) / 60, 1),
     }
+    out["alerts"] = health(prefer, boards, out["minutes"])
     save_json("today.json", out)
     save_json("seen.json", seen)
     save_json("details.json", details_cache)
-    save_json("run-log.json", {"date": TODAY, "generated": out["generated"], "minutes": out["minutes"], "stats": STATS, "errors": ERRORS,
+    save_json("run-log.json", {"date": TODAY, "generated": out["generated"], "minutes": out["minutes"], "stats": STATS, "errors": ERRORS, "alerts": out["alerts"],
                                "counts": {"candidates": len(prefer), "other": len(other), "watch": sum(len(v.get("jobs", [])) for v in watch.values()), "boards": len(boards)}})
     log("fertig:", json.dumps({"candidates": len(prefer), "other": len(other), "watch": len(watch), "boards": len(boards), "errors": len(ERRORS)}))
 
