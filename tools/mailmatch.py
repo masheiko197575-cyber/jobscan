@@ -31,6 +31,7 @@ def clean(u):
     if k=='li':return 'https://www.linkedin.com/jobs/view/'+m.group(1)
     if k=='indeed':return 'https://de.indeed.com/viewjob?jk='+m.group(1).lower()
     return re.sub(r'[?#].*$','',u)
+  if re.match(r'https?://[^/]*(linkedin\.com|indeed\.[a-z.]+|xing\.com|stepstone\.de)(/|$)',u,re.I):return ''  # счётчик переходов без номера вакансии
   if '?' not in u:return re.sub(r'#.*$','',u)
   head,q=u.split('?',1);q=re.sub(r'#.*$','',q)
   keep=[x for x in q.split('&') if x and not TRACK.match(x.split('=')[0])]
