@@ -59,6 +59,46 @@ ADJACENT = re.compile(CFG["title_adjacent"], re.I) if CFG.get("title_adjacent") 
 CORE = re.compile(CFG["title_core"], re.I) if CFG.get("title_core") else None
 SOFT = re.compile(CFG["title_soft"], re.I) if CFG.get("title_soft") else None
 GERMANY = {"DE", "DEU", "DEUTSCHLAND", "GERMANY"}
+# Seiten, auf denen oft längst geschlossene oder nie vorhandene Stellen stehen: ein Treffer nur von dort zählt nicht allein
+STALE_HOSTS = tuple(h.lower() for h in CFG.get("stale_hosts") or [])
+
+
+def is_stale(url):
+    host = re.sub(r"^https?://(www\.)?", "", url or "").split("/")[0].lower()
+    return any(host == h or host.endswith("." + h) for h in STALE_HOSTS)
+
+
+def mark_stale(boards, records):
+    """Treffer von STALE_HOSTS: gibt es dieselbe Stelle (Titel + Firma) schon aus einer anderen Quelle, fällt er weg;
+    sonst bekommt er verify=true — die Morgenaufgabe sucht eine zweite Fundstelle und nimmt die Stelle ohne sie nicht auf."""
+    key = lambda r: _norm_key(r.get("title")) + "|" + _norm_key(r.get("company"))
+    known = {key(r) for r in records} | {key(b) for b in boards if not is_stale(b.get("url"))}
+    kept, st = [], {"flagged": 0, "dup_dropped": 0}
+    for b in boards:
+        if is_stale(b.get("url")):
+            if key(b) in known:
+                st["dup_dropped"] += 1
+                continue
+            b["verify"] = True
+            st["flagged"] += 1
+        kept.append(b)
+    return kept, st
+
+
+def stamp_watch(watch, wseen, stamp, prev):
+    """first_seen für die Stellen der beobachteten Firmen (wie bei den Boards). Beim ersten Lauf mit diesem Feld (wseen ist
+    None) gilt alles aus der vorigen today.json als damals gesehen."""
+    if wseen is None:
+        pstamp = (prev or {}).get("generated") or stamp
+        wseen = {f"{cid}|{j.get('id') or j.get('refnr')}": pstamp
+                 for cid, v in ((prev or {}).get("watch") or {}).items() for j in v.get("jobs") or []}
+    cur = set()
+    for cid, v in watch.items():
+        for j in v.get("jobs") or []:
+            k = f"{cid}|{j.get('id') or j.get('refnr')}"
+            cur.add(k)
+            j["first_seen"] = wseen.setdefault(k, stamp)
+    return wseen, cur
 PV_ONLY = re.compile(CFG.get("pv_only_regex") or CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
 MAX_DESC = int(CFG.get("max_description_chars", 4000))
 
@@ -1339,7 +1379,7 @@ def _best_link(links, company):
         elif not SERP_AGG.search(host + " " + str(a.get("title", ""))):
             score = 1
         else:
-            score = 0
+            score = -0.5 if is_stale(link) else 0
         if score > best_score:
             best, best_score = a, score
     return best or {}
@@ -1720,10 +1760,14 @@ def main():
     stamp = NOW.strftime("%Y-%m-%dT%H:%M:%SZ")
     for b in boards:
         b["first_seen"] = bseen.setdefault(str(b.get("id") or b.get("url")), stamp)
+    boards, STATS["stale"] = mark_stale(boards, prefer + other + [dict(j, company=j.get("company") or v.get("name"))
+                                                                  for v in watch.values() for j in v.get("jobs") or []])
+    wseen, wcur = stamp_watch(watch, seen.get("watch"), stamp, load_json("today.json", {}))
     # seen.json und details.json auf 45 Tage begrenzen
     cutoff = (NOW - dt.timedelta(days=45)).date().isoformat()
     seen["refnr"] = {k: v for k, v in seen["refnr"].items() if v >= cutoff}
     seen["boards"] = {k: v for k, v in seen["boards"].items() if v[:10] >= cutoff}
+    seen["watch"] = {k: v for k, v in wseen.items() if k in wcur or v[:10] >= cutoff}
     li_cutoff = (NOW - dt.timedelta(days=7)).date().isoformat()  # LinkedIn-Texte nur 7 Tage
     details_cache = {k: v for k, v in details_cache.items()
                      if (v.get("cached_at") or "") >= (li_cutoff if k.startswith("li:") else cutoff)}
@@ -1738,15 +1782,15 @@ def main():
             "blind": "beobachtete Firmen, von denen die Jobbörse seit 30 Tagen keine einzige Stelle zeigt — dort nicht sichtbar",
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
-            "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby): id → {name, method, jobs[]}; jobs mit title_tier prefer haben meist description (Personio über search.json ohne); JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten). Firmen, deren Quelle heute nicht lud, fehlen hier (stats.watch_failed) — selbst prüfen",
-            "boards": "eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); first_seen = wann der Scanner die Stelle zum ersten Mal sah (nur Stellen nach dem letzten eigenen Lauf nehmen); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
+            "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby, Sitemap): id → {name, method, jobs[]}; first_seen je Stelle = wann der Scanner sie zum ersten Mal sah (die Morgenaufgabe nimmt nur Stellen nach ihrem letzten Lauf); jobs mit title_tier prefer haben meist description (Personio über search.json ohne); JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten). Firmen, deren Quelle heute nicht lud, fehlen hier (stats.watch_failed) — selbst prüfen",
+            "boards": "verify=true: Fundstelle nur auf einer Seite mit vielen veralteten Anzeigen (config stale_hosts) — zweite Fundstelle suchen, ohne sie nicht aufnehmen; eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); first_seen = wann der Scanner die Stelle zum ersten Mal sah (nur Stellen nach dem letzten eigenen Lauf nehmen); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
         },
         "candidates": sorted(prefer, key=lambda r: (r.get("km") is None, r.get("km") or 0, r.get("company") or "")),
         "other": [{k: r.get(k) for k in ("refnr", "title", "company", "location", "km", "published", "url", "homeoffice", "found_by")} for r in sorted(other, key=lambda r: (r.get("km") is None, r.get("km") or 0))],
         "watch": watch,
         "boards": boards,
         "blind": blind,
-        "filters": {k: CFG.get(k) for k in ("title_exclude", "title_prefer", "title_adjacent", "title_core", "title_soft", "industry_strict_regex")},
+        "filters": {k: CFG.get(k) for k in ("title_exclude", "title_prefer", "title_adjacent", "title_core", "title_soft", "industry_strict_regex", "stale_hosts")},
         "stats": STATS,
         "errors": ERRORS,
         "minutes": round((time.time() - START) / 60, 1),
