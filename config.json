@@ -372,7 +372,7 @@
   "jsonlist": [
     {"id": "autargreen", "name": "Autargreen", "url": "https://hub.autargreen.de/api/public/jobs", "items": "jobs", "fields": {"id": "id", "title": "titel", "text": "beschreibung", "date": "created_at"}, "url_template": "https://autargreen.de/karriere#{id}"},
     {"id": "kodiak", "name": "KODIAK", "url": "https://kodiak.eu/wp-json/wp/v2/job-listings?per_page=100", "items": "", "fields": {"id": "id", "title": "title.rendered", "text": "content.rendered", "date": "date", "url": "link"}, "pv_only": true},
-    {"id": "transnetbw", "name": "TransnetBW", "url": "https://webservices.transnetbw.de/jobs/json/", "items": "", "fields": {"id": "umantis_stellen_id", "title": "dbjob_title", "date": "dbjob_date"}, "text_regex": "^umantis_(?!stellen_id|sync_id)", "url_template": "https://jobs.transnetbw.de/Vacancies/{id}/Description/1"}
+    {"id": "transnetbw", "name": "TransnetBW", "url": "https://webservices.transnetbw.de/jobs/json/", "items": "", "fields": {"id": "umantis_stellen_id", "title": "dbjob_title", "date": "dbjob_date"}, "text_regex": "^umantis_(?!stellen_id|sync_id)", "url_template": "https://jobs.transnetbw.de/Vacancies/{id}/Description/1", "pv_only": true}
   ],
   "page": [
     {"id": "energiewerk", "name": "Energiewerk", "url": "https://karriere.energiewerk.com/de", "link": "karriere\\.energiewerk\\.com/de\\?id=(?P<id>[0-9a-f]{4,})"},
