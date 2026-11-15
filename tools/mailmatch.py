@@ -45,11 +45,13 @@ def make_tier(f):
   def tier(t):
     t=t or ''
     hits=[m.group(0) for m in EX.finditer(t)] if EX else []
+    soft=False
     if hits:
       jr=bool(re.search(r'junior',t,re.I))
-      soft=all((SO and SO.fullmatch(h)) or (jr and re.match(r'senior|sr\.',h,re.I)) for h in hits)
-      return 'soft' if soft and PR and PR.search(t) else 'drop'
+      soft=bool(PR and PR.search(t)) and all((SO and SO.fullmatch(h)) or (jr and re.match(r'senior|sr\.',h,re.I)) for h in hits)
+      if not soft:return 'drop'
     if AD and AD.search(t) and not (CO and CO.search(t)):return 'drop'
+    if soft:return 'soft'
     return 'prefer' if PR and PR.search(t) else 'other'
   return tier
 def rows_of(p):

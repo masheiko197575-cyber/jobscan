@@ -342,5 +342,6 @@
   "title_core": "Photovoltaik|\\bPV\\b|Solar|Speicher|\\bBESS\\b|Batterie|Battery|Erneuerbare|Renewable|Mieterstrom|Agri",
   "stale_hosts": ["talents.studysmarter.de"],
   "title_soft": "montage\\w*|kundenservice|kundendienst|customer service|customer success|kundensupport|logistik\\w*|gas\\w*|wasser\\w*|vertriebsinnendienst\\w*",
+  "title_soft_proof": "Photovoltaik|\\bPV\\b|Solar|Batteriespeicher|Batteriegroßspeicher|Großbatteriespeicher|Großspeicher|Grossspeicher|Stromspeicher|Energiespeicher|\\bBESS\\b|Battery Storage|Energy Storage|Agri-PV|Freiflächenanlage|Speicherprojekt|Mieterstrom|Einspeis|Anlagenanmeld|Netzanmeld",
   "pv_only_regex": "Photovoltaik|\\bPV\\b|Solar|Batteriespeicher|Batteriegroßspeicher|Großbatteriespeicher|Großspeicher|Stromspeicher|Energiespeicher|\\bBESS\\b|Battery Storage|Agri-PV|Freiflächenanlage|Speicherprojekt|Netzanschluss|Einspeis|Anlagenanmeld|Netzanmeld"
 }

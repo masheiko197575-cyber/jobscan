@@ -17,6 +17,8 @@ Daneben im Branch `data`: `dropped.json` (alle nach Titel verworfenen Stellen de
 
 `tools/tokens.py` (Token-Verbrauch der Morgenaufgabe nach Teilen), `tools/mailmatch.py` (Stellen aus E-Mail-Alerts: Links ohne Tracking, Titel-Filter, Abgleich mit Tabelle und Scanner-Datei) und `tools/atsnew.py` (Websuche auf Karriereseiten: Anfragen des Tages, neue Links ohne schon Gesehenes) lädt die Morgenaufgabe direkt von hier. `stale_hosts` in `config.json`: Seiten mit vielen längst geschlossenen Anzeigen (derzeit talents.studysmarter.de) — ein Treffer nur von dort bekommt `verify: true` und wird von der Morgenaufgabe nur aufgenommen, wenn sich eine zweite Fundstelle findet. Stellen der beobachteten Firmen (`watch`) tragen wie die Boards `first_seen`.
 
+`title_soft` in `config.json`: Ausschlusswörter, die nicht immer stören (Montage, Kundenservice, Customer Success, Logistik, Gas, Wasser, Vertriebsinnendienst; dazu «Senior» neben «Junior»). Steht daneben ein Rollenwort, bleibt die Stelle — aber nur mit PV-/Speicherbezug: eigene Stellenliste einer beobachteten Firma, Wort aus `title_core` im Titel oder Firmennamen, oder Wort aus `title_soft_proof` im Stellentext. Solche Stellen tragen `title_soft: true` (Zähler in `stats.title_soft`); ohne Bezug stehen sie mit «ohne pv/speicher» in `dropped.json`.
+
 Quellen und Filter stehen in `config.json`. Keine Zugangsdaten, keine personenbezogenen Daten.
 
 Datenquelle Jobbörse: öffentliche Jobsuche-API der Bundesagentur für Arbeit (Suche `/pc/v6/jobs`, Details `/pc/v4/jobdetails`; dokumentiert unter github.com/bundesAPI/jobsuche-api). Ergebnis: `data/today.json` (+ `data/seen.json`, `data/details.json`, `data/run-log.json`).

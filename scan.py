@@ -58,6 +58,9 @@ INDUSTRY_STRICT = re.compile(CFG.get("industry_strict_regex") or CFG["industry_r
 ADJACENT = re.compile(CFG["title_adjacent"], re.I) if CFG.get("title_adjacent") else None
 CORE = re.compile(CFG["title_core"], re.I) if CFG.get("title_core") else None
 SOFT = re.compile(CFG["title_soft"], re.I) if CFG.get("title_soft") else None
+# Beleg im Stellentext für Titel mit «weichem» Ausschlusswort: eindeutige PV-/Speicherwörter (ohne «Netzanschluss», «Speicher»,
+# «Erneuerbare» — die stehen auch in Gas-, Wasser- und Stadtwerke-Texten)
+PROOF = re.compile(CFG.get("title_soft_proof") or CFG.get("pv_only_regex") or CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
 GERMANY = {"DE", "DEU", "DEUTSCHLAND", "GERMANY"}
 # Seiten, auf denen oft längst geschlossene oder nie vorhandene Stellen stehen: ein Treffer nur von dort zählt nicht allein
 STALE_HOSTS = tuple(h.lower() for h in CFG.get("stale_hosts") or [])
@@ -156,10 +159,22 @@ def cut(s, n=MAX_DESC):
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
+def soft_only(t, hits):
+    """Alle Ausschlusstreffer des Titels sind «weich» (config title_soft; «Senior» neben «Junior») und der Titel nennt
+    eine Rolle — z. B. «Montage-Disponent Photovoltaik», «Kundenservice & Backoffice – Photovoltaik»."""
+    if not hits or not PREF.search(t):
+        return False
+    junior = bool(re.search(r"junior", t, re.I))
+    return all(bool(SOFT and SOFT.fullmatch(h)) or bool(junior and re.match(r"senior|sr\.", h, re.I)) for h in hits)
+
+
 def title_tier(title):
-    """'drop' | 'prefer' | 'other'"""
+    """'drop' | 'prefer' | 'other'. Titel, deren Ausschlusswörter alle «weich» sind (soft_only), fallen seit 15.11.2026
+    nicht mehr durch: sie laufen als 'prefer' weiter (dadurch mit Stellentext), und main() behält sie nur mit
+    PV-/Speicherbezug (soft_keep) — sonst werden sie wie bisher verworfen."""
     t = title or ""
-    if EXCL.search(t):
+    hits = [m.group(0) for m in EXCL.finditer(t)]
+    if hits and not soft_only(t, hits):
         return "drop"
     # Nur Wind/Wärme/Laden/Netzbau im Titel ohne PV- oder Speicherwort: raus (PV oder BESS muss zur Rolle gehören)
     if ADJACENT and ADJACENT.search(t) and not (CORE and CORE.search(t)):
@@ -169,25 +184,43 @@ def title_tier(title):
     return "other"
 
 
+def soft_keep(rec, company=None, own_feed=False):
+    """Für Stellen, die nur dank soft_only durch den Titelfilter kamen. None: kein solcher Titel. Sonst der Beleg für den
+    PV-/Speicherbezug: 'feed' — eigene Stellenliste einer beobachteten Firma; 'title' — Wort aus title_core im Titel oder
+    Firmennamen; 'text' — Wort aus title_soft_proof im Stellentext; '' — kein Beleg (verwerfen)."""
+    title = rec.get("title") or ""
+    if not EXCL.search(title):
+        return None
+    if own_feed:
+        return "feed"
+    if CORE and CORE.search(f"{title} {rec.get('company') or ''} {company or ''}"):
+        return "title"
+    text = " ".join(str(rec.get(k) or "") for k in ("description", "beruf", "employer_profile"))
+    return "text" if PROOF.search(text) else ""
+
+
 DROPPED = []  # nach Titel verworfene Stellen dieses Laufs (data/dropped.json)
 
 
 def drop_why(title):
     """Wörter, an denen der Titel scheiterte; role: ohne sie bleibt noch ein Rollenwort im Titel (strittig);
-    soft: alle diese Wörter sind «weich» (config title_soft, oder Senior neben Junior) und der Titel nennt eine Rolle —
-    solche Titel behält der Vorfilter für Stellen aus E-Mails (Morgenaufgabe, mailmatch)."""
+    soft: alle diese Wörter sind «weich» (soft_only) — verworfen wurde die Stelle dann, weil der PV-/Speicherbezug fehlt."""
     t = title or ""
     hits = [m.group(0) for m in EXCL.finditer(t)]
     why = sorted({h.lower() for h in hits})
-    if not why and ADJACENT and ADJACENT.search(t):
-        return ["nur " + ADJACENT.search(t).group(0).lower()], False, False
-    junior = bool(re.search(r"junior", t, re.I))
-    soft = bool(hits) and all((SOFT and SOFT.fullmatch(h)) or (junior and re.match(r"senior|sr\.", h, re.I)) for h in hits)
-    return why, bool(PREF.search(EXCL.sub(" ", t))), bool(soft and PREF.search(t))
+    adj = ADJACENT.search(t) if ADJACENT and not (CORE and CORE.search(t)) else None
+    if not why and adj:
+        return ["nur " + adj.group(0).lower()], False, False
+    role = bool(PREF.search(EXCL.sub(" ", t)))
+    if adj and soft_only(t, hits):  # die weichen Wörter allein hätten ihn nicht verworfen — der Grund ist das Nachbarthema
+        return why + ["nur " + adj.group(0).lower()], role, False
+    return why, role, soft_only(t, hits)
 
 
-def note_drop(title, company, source):
+def note_drop(title, company, source, extra=None):
     why, role, soft = drop_why(title)
+    if extra:
+        why = why + [extra]
     DROPPED.append({"t": (title or "")[:140], "c": (company or "")[:60], "s": source, "w": why, "role": role, "soft": soft})
 
 
@@ -1730,15 +1763,38 @@ def main():
             watch[cid] = entry
     boards = (res.get("atom_xing") or []) + (res.get("jobspy") or []) + (res.get("serpapi") or [])
 
+    # Titel mit «weichem» Ausschlusswort (soft_only): nur mit PV-/Speicherbezug behalten, sonst wie bisher verwerfen
+    soft_st = {"feed": 0, "title": 0, "text": 0, "no_pv_dropped": 0}
+
+    def soft_gate(rec, source, company=None, own_feed=False):
+        how = soft_keep(rec, company, own_feed)
+        if how is None:
+            return True
+        if not how:
+            soft_st["no_pv_dropped"] += 1
+            note_drop(rec.get("title"), company or rec.get("company"), source, "ohne pv/speicher")
+            return False
+        soft_st[how] += 1
+        rec["title_soft"] = True
+        return True
+
+    prefer = [r for r in prefer if soft_gate(r, "Jobbörse")]
+    other = [r for r in other if soft_gate(r, "Jobbörse")]
+    boards = [b for b in boards if soft_gate(b, b.get("source") or "доска")]
+
     # beobachtete Firmen: ausgeschlossene Titel (Monteure, Vertrieb, IT …) nicht in die Datei
     for entry in watch.values():
         allj = entry.get("jobs") or []
         entry["jobs_total"] = len(allj)
-        src = "Jobbörse по имени" if entry.get("method") == "jobboerse" else "Лента компании"
         for j in allj:
+            by_name = bool(j.get("refnr"))  # Jobbörse nach Name (Teiltreffer im Firmennamen möglich) — sonst eigene Liste
+            src = "Jobbörse по имени" if by_name else "Лента компании"
             if j.get("title_tier") == "drop":
                 note_drop(j.get("title"), entry.get("name"), src)
+            elif not soft_gate(j, src, entry.get("name"), own_feed=not by_name):
+                j["title_tier"] = "drop"
         entry["jobs"] = [j for j in allj if j.get("title_tier") != "drop"]
+    STATS["title_soft"] = soft_st
     # Quelle nicht geladen und keine Stellen: Firma nicht in watch aufnehmen — sonst hält die Morgenaufgabe sie
     # für erledigt und prüft sie nicht (so fielen 05.–06.11. fünf Personio-Firmen still aus).
     failed = sorted(k for k, v in watch.items() if v.get("error") and not v.get("jobs_total"))
@@ -1783,6 +1839,7 @@ def main():
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
             "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby, Sitemap): id → {name, method, jobs[]}; first_seen je Stelle = wann der Scanner sie zum ersten Mal sah (die Morgenaufgabe nimmt nur Stellen nach ihrem letzten Lauf); jobs mit title_tier prefer haben meist description (Personio über search.json ohne); JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten). Firmen, deren Quelle heute nicht lud, fehlen hier (stats.watch_failed) — selbst prüfen",
+            "title_soft": "true an Stellen in candidates, watch und boards: der Titel enthält ein «weiches» Ausschlusswort (config title_soft: Montage, Kundenservice, Customer Success, Logistik, Gas, Wasser, Vertriebsinnendienst; oder Senior neben Junior) und ein Rollenwort; behalten, weil es einen PV-/Speicherbezug gibt (eigene Liste einer beobachteten Firma, Wort im Titel/Firmennamen oder im Text; stats.title_soft). Kein Urteil über die Rolle — nach Fokus und Volltext entscheiden",
             "boards": "verify=true: Fundstelle nur auf einer Seite mit vielen veralteten Anzeigen (config stale_hosts) — zweite Fundstelle suchen, ohne sie nicht aufnehmen; eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); first_seen = wann der Scanner die Stelle zum ersten Mal sah (nur Stellen nach dem letzten eigenen Lauf nehmen); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
         },
         "candidates": sorted(prefer, key=lambda r: (r.get("km") is None, r.get("km") or 0, r.get("company") or "")),
@@ -1790,7 +1847,7 @@ def main():
         "watch": watch,
         "boards": boards,
         "blind": blind,
-        "filters": {k: CFG.get(k) for k in ("title_exclude", "title_prefer", "title_adjacent", "title_core", "title_soft", "industry_strict_regex", "stale_hosts")},
+        "filters": {k: CFG.get(k) for k in ("title_exclude", "title_prefer", "title_adjacent", "title_core", "title_soft", "title_soft_proof", "industry_strict_regex", "stale_hosts")},
         "stats": STATS,
         "errors": ERRORS,
         "minutes": round((time.time() - START) / 60, 1),
