@@ -345,28 +345,29 @@
     {"id": "zeppelin-power-systems", "name": "Zeppelin Power Systems", "host": "zeppelin.wd3.myworkdayjobs.com", "tenant": "zeppelin", "site": "careers", "searchText": "Power Systems", "location_regex": "German|Deutschland|Hamburg|Achim|Berlin|Köln|Remote"},
     {"id": "energiedienst", "name": "Energiedienst", "host": "energiedienst.wd103.myworkdayjobs.com", "tenant": "energiedienst", "site": "1894-1898-2002"},
     {"id": "cip", "name": "Copenhagen Infrastructure Partners (Hamburg)", "host": "cip.wd103.myworkdayjobs.com", "tenant": "cip", "site": "CIP_TT", "location_regex": "German|Deutschland|Hamburg|Berlin|Munich|München"},
-    {"id": "getec", "name": "GETEC", "host": "getec.wd103.myworkdayjobs.com", "tenant": "getec", "site": "External_Careers", "facet_match": "^Deutschland", "pv_only": true},
+    {"id": "getec", "name": "GETEC", "host": "getec.wd103.myworkdayjobs.com", "tenant": "getec", "site": "External_Careers", "facet_match": "^Deutschland$", "pv_only": true},
     {"id": "pramac", "name": "Pramac", "host": "generac.wd5.myworkdayjobs.com", "tenant": "generac", "site": "ExternalCareers", "facet_match": "Germany"}
   ],
   "sitemap": [
     {"id": "enbw", "name": "EnBW", "sitemap": "https://careers.enbw.com/sitemap.xml", "pv_only": true},
     {"id": "netze-bw", "name": "Netze BW", "sitemap": "https://careers.netze-bw.de/sitemap.xml", "pv_only": true},
     {"id": "metka-egn-germany", "name": "METKA EGN Germany", "sitemap": "https://careers.metlen.com/sitemap.xml", "job_regex": "/job/[^/]*?Germany-(?P<slug>.+)-[A-Za-z]{3,5}-\\d{4,6}/(?P<id>\\d+)/", "details": false},
-    {"id": "neoen-deutschland", "name": "Neoen Deutschland", "sitemap": "https://careers.neoen.com/sitemap.xml", "job_regex": "/annonce/(?P<id>\\d+)-(?P<slug>[^/?#]+)", "max_details": 60}
+    {"id": "neoen-deutschland", "name": "Neoen Deutschland", "sitemap": "https://careers.neoen.com/sitemap.xml", "job_regex": "/annonce/(?P<id>\\d+)-(?P<slug>[^/?#]+)", "max_details": 60, "need_country": true}
   ],
   "dvinci": [
     {"id": "scharr", "name": "SCHARR", "host": "scharr.dvinci-hr.com", "pv_only": true},
     {"id": "flughafen-stuttgart", "name": "Flughafen Stuttgart", "host": "stuttgart-airport.dvinci-hr.com", "pv_only": true},
     {"id": "ads-tec-energy", "name": "ADS-TEC Energy", "host": "adstec-karriere.dvinci-hr.com"},
-    {"id": "encavis", "name": "Encavis", "host": "encavis.dvinci-hr.com", "pv_only": true},
     {"id": "albwerk", "name": "Albwerk", "host": "albwerk-karriere.de", "pv_only": true}
   ],
   "workable": [
     {"id": "enfinity-global", "name": "Enfinity Global", "account": "enfinity-global-2"}
   ],
-  "greenhouse": [],
+  "greenhouse": [
+    {"id": "bw-energy-storage", "name": "BW Energy Storage Systems", "board": "bwessmanagementgmbh", "api": "boards-api.greenhouse.io", "location_regex": "Germany|Deutschland|Hamburg|Berlin|München|Munich|Frankfurt|Düsseldorf|Köln|Stuttgart"}
+  ],
   "rss": [
-    {"id": "tennet", "name": "TenneT", "url": "https://careers.tennet.eu/de_DE/careers/SearchJobs/feed/?jobRecordsPerPage=1000", "keep": "\\((?:m/w/d|w/m/d|d/m/w|m/f/d|f/m/d|all genders)\\)", "pv_only": true}
+    {"id": "tennet", "name": "TenneT", "url": "https://careers.tennet.eu/de_DE/careers/SearchJobs/feed/?jobRecordsPerPage=1000", "keep": "\\((?:m/w/d|w/m/d|d/m/w|m/f/d|f/m/d|all genders)\\)"}
   ],
   "jsonlist": [
     {"id": "autargreen", "name": "Autargreen", "url": "https://hub.autargreen.de/api/public/jobs", "items": "jobs", "fields": {"id": "id", "title": "titel", "text": "beschreibung", "date": "created_at"}, "url_template": "https://autargreen.de/karriere#{id}"},
@@ -400,7 +401,8 @@
     {"id": "sbp-sonne", "name": "sbp sonne", "url": "https://www.sbp.de/jobs/", "link": "sbp\\.de/joboffer/(?P<id>[a-z0-9-]+)"},
     {"id": "res-deutschland", "name": "RES Deutschland", "url": "https://jobs.jobvite.com/resgroup/jobs/positions?l=Germany", "link": "jobs\\.jobvite\\.com/resgroup/job/(?P<id>[A-Za-z0-9]+)$", "keep": "Germany|Deutschland", "title_from": "page"},
     {"id": "bessr", "name": "BESSr", "url": "https://bessr-gmbh.de/karriere/", "urls": ["https://bessr-gmbh.de/career/?lang=en"], "link": "bessr-gmbh\\.de/(?:karriere|career)/(?:stellenanzeige|job-opening)-(?P<id>[a-z0-9-]+)/?(?:\\?lang=en)?$"},
-    {"id": "mein-solar", "name": "Mein Solar", "url": "https://www.mein-solar.com/Karriere", "mode": "headings"}
+    {"id": "mein-solar", "name": "Mein Solar", "url": "https://www.mein-solar.com/Karriere", "mode": "headings"},
+    {"id": "prokon", "name": "Prokon", "url": "https://stellenanzeigen.prokon.energy/de", "link": "stellenanzeigen\\.prokon\\.energy/de\\?id=(?P<id>[0-9a-f]{4,})", "pv_only": true}
   ],
   "atom": [
     {"id": "eejobs", "name": "eejobs.de", "url": "https://www.eejobs.de/angebote/neueste.html?&feed=atom"},

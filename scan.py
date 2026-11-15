@@ -103,15 +103,17 @@ def stamp_watch(watch, wseen, stamp, prev):
             boot = json.load(open(bp, encoding="utf-8"))
         except Exception as ex:  # noqa: BLE001
             err(f"bootstrap_seen.json unlesbar: {ex}")
-    bjobs, bstamp = boot.get("jobs") or {}, boot.get("stamp")
+    # Firmen, deren Liste die Morgenaufgabe bis zum Umstieg selbst las: was der Scanner am Umstiegstag dort findet,
+    # war schon geprüft (alter Zeitstempel); ab dem Folgetag gilt wieder der Zeitpunkt des Laufs
+    bcomp = set(boot.get("companies") or []) if TODAY <= (boot.get("until") or "") else set()
+    bstamp = boot.get("stamp")
     cur = set()
     for cid, v in watch.items():
-        bset = set(bjobs.get(cid) or [])
         for j in v.get("jobs") or []:
             k = f"{cid}|{j.get('id') or j.get('refnr')}"
             cur.add(k)
-            if bstamp and k not in wseen and j.get("id") in bset:
-                wseen[k] = bstamp  # schon von der Morgenaufgabe geprüft, bevor der Scanner die Firma las
+            if bstamp and cid in bcomp and k not in wseen:
+                wseen[k] = bstamp
             j["first_seen"] = wseen.setdefault(k, stamp)
     return wseen, cur
 PV_ONLY = re.compile(CFG.get("pv_only_regex") or CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
@@ -906,6 +908,8 @@ def scan_sitemap(e, details_cache):
         det = det or {}
         if det.get("countries") and not any(c in GERMANY for c in det["countries"]):
             continue
+        if e.get("need_country") and not det.get("countries"):
+            continue
         title = det.get("title") or rough
         rec = {"id": f"sm-{e['id']}-{gid}", "source": "Сайт компании", "company": e["name"], "title": title,
                "location": det.get("location") or "", "published": det.get("published"), "url": url,
@@ -1015,11 +1019,24 @@ def _get_quiet(url, as_json):
         return None
 
 
-A_TAG = re.compile(r"<a\b([^>]*)>(.*?)</a>", re.S | re.I)
+A_TAG = re.compile(r"""<a\b((?:[^>"']|"[^"]*"|'[^']*')*)>(.*?)</a>""", re.S | re.I)
 A_HREF = re.compile(r"""href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))""", re.I)
 A_TITLE = re.compile(r"""(?:title|aria-label)\s*=\s*(?:"([^"]+)"|'([^']+)')""", re.I)
 NAV_TAIL = re.compile(r"\s*(?:mehr erfahren|mehr infos?|alle infos|jetzt bewerben|zur stelle|zum job|zur stellenanzeige|stelle ansehen|"
                       r"stelle anzeigen|details|mehr|weiterlesen|view job|read more|learn more|apply now|more|»|›|→)\s*$", re.I)
+TAG_RE = re.compile(r"""<(?:[^>"']|"[^"]*"|'[^']*')*>""")
+TITLE_PREFIX = re.compile(r"^(?:Bewirb (?:dich|Dich) (?:jetzt )?als|Bewerben Sie sich (?:jetzt )?als|Stellenanzeige\s*[-–:|]|Stellenangebot\s*[-–:|]|"
+                          r"Job Opening\s*[-–:|]|Jobangebot\s*[-–:|])\s*", re.I)
+# keine echte Stelle: Initiativbewerbung, allgemeiner Aufruf
+NOT_A_JOB = re.compile(r"^\s*(?:Initiativ\w*|Spontaneous application|Open application|Unsolicited application)|Initiativbewerbung|"
+                       r"Wir wachsen und suchen Dich|Initiativ bewerben", re.I)
+
+
+def clean_title(t):
+    t = re.sub(r"\s+", " ", html.unescape(t or "")).strip()
+    return TITLE_PREFIX.sub("", t).strip(" -–|:")
+
+
 GENDER_MARK = re.compile(r"\(\s*[mwdfxi](?:\s*[/|*,]\s*[mwdfxi]){1,3}\s*\)|\ball genders\b|\(gn\)|\b[mwd]/[mwd]/[mwd]\b|\b[mf]/[mf]/[dx]\b|\(alle\)", re.I)
 
 
@@ -1033,7 +1050,7 @@ def page_links(base, text):
         href = html.unescape(next(g for g in h.groups() if g is not None)).strip()
         if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
             continue
-        label = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", re.sub(r"<(script|style|svg)\b.*?</\1>", " ", m.group(2), flags=re.S | re.I)))).strip()
+        label = re.sub(r"\s+", " ", html.unescape(TAG_RE.sub(" ", re.sub(r"<(script|style|svg)\b.*?</\1>", " ", m.group(2), flags=re.S | re.I)))).strip()
         t = A_TITLE.search(m.group(1))
         alt = html.unescape(next(g for g in t.groups() if g)) if t else ""
         out.append((urljoin(base, href).split("#")[0], label, alt))
@@ -1063,10 +1080,11 @@ def page_details(url, details_cache, pv_only=False):
     det = xing_details(t) or {}
     if not det.get("description"):
         m = re.search(r"<main\b[^>]*>(.*?)</main>", t, re.S | re.I) or re.search(r"<article\b[^>]*>(.*?)</article>", t, re.S | re.I)
-        body = m.group(1) if m else ""
-        body = re.sub(r"<(script|style|nav|header|footer|form|svg)\b.*?</\1>", " ", body, flags=re.S | re.I)
+        b = None if m else re.search(r"<body\b[^>]*>(.*)</body>", t, re.S | re.I)
+        body = m.group(1) if m else (b.group(1) if b else "")
+        body = re.sub(r"<(script|style|nav|header|footer|form|svg|noscript)\b.*?</\1>", " ", body, flags=re.S | re.I)
         det["description"] = strip_html(body)
-        det["text_from"] = "main" if m else "none"
+        det["text_from"] = "main" if m else ("body" if b else "none")
     if not det.get("title"):
         h1 = re.search(r"<h1\b[^>]*>(.*?)</h1>", t, re.S | re.I)
         ttl = re.search(r"<title[^>]*>(.*?)</title>", t, re.S | re.I)
@@ -1124,9 +1142,12 @@ def scan_page(e, details_cache):
             key = (m.groupdict().get("id") if "id" in link_rx.groupindex else None) or re.sub(r"^https?://(www\.)?", "", url).rstrip("/")
             cur = found.get(key)
             lab = _nav_strip(label)
+
+            def good(x):
+                return 4 <= len(x) <= 120
             if cur is None:
                 found[key] = {"url": url, "label": lab, "alt": alt, "key": key}
-            elif (GENDER_MARK.search(lab) and not GENDER_MARK.search(cur["label"])) or len(lab) > len(cur["label"]) and not GENDER_MARK.search(cur["label"]):
+            elif (GENDER_MARK.search(lab) and good(lab) and not GENDER_MARK.search(cur["label"])) or (good(lab) and not good(cur["label"])):
                 cur.update({"label": lab, "alt": alt or cur["alt"]})
         if pg and len(found) == before and u != e["url"]:
             break  # Blättern: keine neuen Stellen mehr
@@ -1158,7 +1179,8 @@ def scan_page(e, details_cache):
         det = det or {}
         if need_title or e.get("title_from") == "page":
             title = det.get("title") or title
-        if not title:
+        title = clean_title(title)
+        if not title or NOT_A_JOB.search(title):
             continue
         if det.get("countries") and not any(c in GERMANY for c in det["countries"]) and not e.get("any_country"):
             continue
@@ -1170,7 +1192,7 @@ def scan_page(e, details_cache):
         if rec["title_tier"] == "prefer" and text:
             rec["description"] = cut(text)
         if e.get("pv_only"):
-            rec["_text"] = text if det.get("text_from") != "none" else ""
+            rec["_text"] = text if det.get("text_from") not in ("none", "body") else ""
         jobs.append(rec)
     return jobs
 
@@ -1189,6 +1211,8 @@ def scan_dvinci(e):
             continue
         title = (p.get("position") or p.get("pageTitle") or "").strip()
         op = p.get("jobOpening") if isinstance(p.get("jobOpening"), dict) else {}
+        if NOT_A_JOB.search(title):
+            continue
         if keep_rx and not keep_rx.search(f"{title} {op.get('name') or ''}"):
             continue
         locs = []
@@ -1272,7 +1296,7 @@ def scan_rss(e):
     for it in root.iter("item"):
         title = (it.findtext("title") or "").strip()
         link = (it.findtext("link") or "").strip()
-        if not title or (keep_rx and not keep_rx.search(title)):
+        if not title or NOT_A_JOB.search(title) or (keep_rx and not keep_rx.search(title)):
             continue
         m = re.search(e.get("id_regex") or r"jobId=(\d+)", link)
         text = strip_html(it.findtext("description") or "")
@@ -1315,7 +1339,7 @@ def scan_jsonlist(e):
             continue
         jid = _jget(it, f.get("id", "id"))
         title = strip_html(html.unescape(str(_jget(it, f.get("title", "title")) or "")))
-        if not title:
+        if not title or NOT_A_JOB.search(title):
             continue
         url = _jget(it, f["url"]) if f.get("url") else None
         url = url or (e.get("url_template") or "").format(id=jid)

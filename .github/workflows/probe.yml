@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install requests python-jobspy
-      - run: python probe5.py
+      - run: python probe6.py
       - name: Ergebnis in Branch probe-out
         if: always()
         run: |
