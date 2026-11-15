@@ -1324,7 +1324,8 @@ def _jget(obj, path):
 
 def scan_jsonlist(e):
     """Stellenliste als JSON (eigene Schnittstelle der Firma, WordPress «job-listings»): e["items"] = Pfad zur Liste,
-    e["fields"] = {"id", "title", "text", "date", "url"} (Pfade mit Punkt), e["url_template"] mit {id}."""
+    e["fields"] = {"id", "title", "text", "date", "url"} (Pfade mit Punkt), e["url_template"] mit {id},
+    e["text_regex"]: Text aus allen Feldern, deren Name passt."""
     d = page_get(e["url"], as_json=True)
     if d is None:
         return None
@@ -1344,6 +1345,9 @@ def scan_jsonlist(e):
         url = _jget(it, f["url"]) if f.get("url") else None
         url = url or (e.get("url_template") or "").format(id=jid)
         text = strip_html(html.unescape(str(_jget(it, f.get("text", "")) or ""))) if f.get("text") else ""
+        if e.get("text_regex"):  # Text über mehrere Felder verteilt (z. B. umantis_*-Textblöcke)
+            trx = re.compile(e["text_regex"])
+            text = strip_html(html.unescape(" \n".join(str(v) for k, v in it.items() if trx.search(k) and isinstance(v, str) and v.strip())))
         rec = {"id": f"js-{e['id']}-{jid}", "source": "Сайт компании", "company": e["name"], "title": title, "location": "",
                "published": str(_jget(it, f.get("date", "")) or "")[:10] or None, "url": url,
                "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}

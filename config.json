@@ -371,7 +371,8 @@
   ],
   "jsonlist": [
     {"id": "autargreen", "name": "Autargreen", "url": "https://hub.autargreen.de/api/public/jobs", "items": "jobs", "fields": {"id": "id", "title": "titel", "text": "beschreibung", "date": "created_at"}, "url_template": "https://autargreen.de/karriere#{id}"},
-    {"id": "kodiak", "name": "KODIAK", "url": "https://kodiak.eu/wp-json/wp/v2/job-listings?per_page=100", "items": "", "fields": {"id": "id", "title": "title.rendered", "text": "content.rendered", "date": "date", "url": "link"}, "pv_only": true}
+    {"id": "kodiak", "name": "KODIAK", "url": "https://kodiak.eu/wp-json/wp/v2/job-listings?per_page=100", "items": "", "fields": {"id": "id", "title": "title.rendered", "text": "content.rendered", "date": "date", "url": "link"}, "pv_only": true},
+    {"id": "transnetbw", "name": "TransnetBW", "url": "https://webservices.transnetbw.de/jobs/json/", "items": "", "fields": {"id": "umantis_stellen_id", "title": "dbjob_title", "date": "dbjob_date"}, "text_regex": "^umantis_(?!stellen_id|sync_id)", "url_template": "https://jobs.transnetbw.de/Vacancies/{id}/Description/1"}
   ],
   "page": [
     {"id": "energiewerk", "name": "Energiewerk", "url": "https://karriere.energiewerk.com/de", "link": "karriere\\.energiewerk\\.com/de\\?id=(?P<id>[0-9a-f]{4,})"},
@@ -402,7 +403,6 @@
     {"id": "res-deutschland", "name": "RES Deutschland", "url": "https://jobs.jobvite.com/resgroup/jobs/positions?l=Germany", "link": "jobs\\.jobvite\\.com/resgroup/job/(?P<id>[A-Za-z0-9]+)$", "keep": "Germany|Deutschland", "title_from": "page"},
     {"id": "bessr", "name": "BESSr", "url": "https://bessr-gmbh.de/karriere/", "urls": ["https://bessr-gmbh.de/career/?lang=en"], "link": "bessr-gmbh\\.de/(?:karriere|career)/(?:stellenanzeige|job-opening)-(?P<id>[a-z0-9-]+)/?(?:\\?lang=en)?$"},
     {"id": "mein-solar", "name": "Mein Solar", "url": "https://www.mein-solar.com/Karriere", "mode": "headings"},
-    {"id": "transnetbw", "name": "TransnetBW", "url": "https://jobs.transnetbw.de/Jobs/All", "link": "jobs\\.transnetbw\\.de/Vacancies/(?P<id>\\d+)/Description/"},
     {"id": "prokon", "name": "Prokon", "url": "https://stellenanzeigen.prokon.energy/de", "link": "stellenanzeigen\\.prokon\\.energy/de\\?id=(?P<id>[0-9a-f]{4,})", "pv_only": true}
   ],
   "atom": [
