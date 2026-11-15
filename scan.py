@@ -31,7 +31,8 @@ import time
 import xml.etree.ElementTree as ET
 
 import requests
-from urllib.parse import unquote, urlencode
+from urllib import robotparser
+from urllib.parse import unquote, urlencode, urljoin, urlparse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, "data")
@@ -61,7 +62,7 @@ SOFT = re.compile(CFG["title_soft"], re.I) if CFG.get("title_soft") else None
 # Beleg im Stellentext für Titel mit «weichem» Ausschlusswort: eindeutige PV-/Speicherwörter (ohne «Netzanschluss», «Speicher»,
 # «Erneuerbare» — die stehen auch in Gas-, Wasser- und Stadtwerke-Texten)
 PROOF = re.compile(CFG.get("title_soft_proof") or CFG.get("pv_only_regex") or CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
-GERMANY = {"DE", "DEU", "DEUTSCHLAND", "GERMANY"}
+GERMANY = {"DE", "DEU", "DEUTSCHLAND", "GERMANY", "ALLEMAGNE", "GERMANIA", "ALEMANIA", "DUITSLAND", "NIEMCY"}
 # Seiten, auf denen oft längst geschlossene oder nie vorhandene Stellen stehen: ein Treffer nur von dort zählt nicht allein
 STALE_HOSTS = tuple(h.lower() for h in CFG.get("stale_hosts") or [])
 
@@ -95,11 +96,24 @@ def stamp_watch(watch, wseen, stamp, prev):
         pstamp = (prev or {}).get("generated") or stamp
         wseen = {f"{cid}|{j.get('id') or j.get('refnr')}": pstamp
                  for cid, v in ((prev or {}).get("watch") or {}).items() for j in v.get("jobs") or []}
+    boot = {}
+    bp = os.path.join(ROOT, "bootstrap_seen.json")
+    if os.path.exists(bp):
+        try:
+            boot = json.load(open(bp, encoding="utf-8"))
+        except Exception as ex:  # noqa: BLE001
+            err(f"bootstrap_seen.json unlesbar: {ex}")
+    # Firmen, deren Liste die Morgenaufgabe bis zum Umstieg selbst las: was der Scanner am Umstiegstag dort findet,
+    # war schon geprüft (alter Zeitstempel); ab dem Folgetag gilt wieder der Zeitpunkt des Laufs
+    bcomp = set(boot.get("companies") or []) if TODAY <= (boot.get("until") or "") else set()
+    bstamp = boot.get("stamp")
     cur = set()
     for cid, v in watch.items():
         for j in v.get("jobs") or []:
             k = f"{cid}|{j.get('id') or j.get('refnr')}"
             cur.add(k)
+            if bstamp and cid in bcomp and k not in wseen:
+                wseen[k] = bstamp
             j["first_seen"] = wseen.setdefault(k, stamp)
     return wseen, cur
 PV_ONLY = re.compile(CFG.get("pv_only_regex") or CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
@@ -692,14 +706,37 @@ def scan_smartrecruiters(e):
     return jobs
 
 
+def workday_facets(url, rx):
+    """Facetten-Werte (Land, Standort), deren Name auf rx passt → {facetParameter: [ids]} für appliedFacets."""
+    d = http_post_json(url, {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""}) or {}
+    applied = {}
+
+    def walk(node, param):
+        for v in node.get("values") or []:
+            if not isinstance(v, dict):
+                continue
+            if v.get("values"):
+                walk(v, v.get("facetParameter") or param)
+            elif v.get("id") and rx.search(v.get("descriptor") or ""):
+                applied.setdefault(param, []).append(v["id"])
+    for f in d.get("facets") or []:
+        walk(f, f.get("facetParameter"))
+    return applied
+
+
 def scan_workday(e):
     host, tenant, site = e["host"], e["tenant"], e["site"]
     url = f"https://{host}/wday/cxs/{tenant}/{site}/jobs"
     jobs = []
     offset = 0
     locf = re.compile(e["location_regex"], re.I) if e.get("location_regex") else None
+    facets = {}
+    if e.get("facet_match"):
+        facets = workday_facets(url, re.compile(e["facet_match"], re.I))
+        if not facets:
+            return []  # keine Stellen in diesem Land
     while offset < 400:
-        d = http_post_json(url, {"appliedFacets": {}, "limit": 20, "offset": offset, "searchText": e.get("searchText", "")})
+        d = http_post_json(url, {"appliedFacets": facets, "limit": 20, "offset": offset, "searchText": e.get("searchText", "")})
         if not d:
             break
         posts = d.get("jobPostings") or []
@@ -856,10 +893,12 @@ def scan_sitemap(e, details_cache):
         m = rx.search(url)
         if not m:
             continue
-        rough = re.sub(r"\s+", " ", re.sub(r"\b[wmdfx]( [wmdfx]){1,2}\b", " ", unquote(m.group(2)).replace("-", " "))).strip()
+        gid = m.group("id") if "id" in rx.groupindex else m.group(1)
+        gslug = m.group("slug") if "slug" in rx.groupindex else m.group(2)
+        rough = re.sub(r"\s+", " ", re.sub(r"\b[wmdfx]( [wmdfx]){1,2}\b", " ", unquote(gslug).replace("-", " "))).strip()
         key = f"sm:{url}"
         det = details_cache.get(key)
-        if det is None and title_tier(rough) != "drop" and fetched < max_new:
+        if det is None and e.get("details", True) and title_tier(rough) != "drop" and fetched < max_new:
             page = fetch(url)
             fetched += 1
             det = xing_details(page) if page else None
@@ -869,8 +908,10 @@ def scan_sitemap(e, details_cache):
         det = det or {}
         if det.get("countries") and not any(c in GERMANY for c in det["countries"]):
             continue
+        if e.get("need_country") and not det.get("countries"):
+            continue
         title = det.get("title") or rough
-        rec = {"id": f"sm-{e['id']}-{m.group(1)}", "source": "Сайт компании", "company": e["name"], "title": title,
+        rec = {"id": f"sm-{e['id']}-{gid}", "source": "Сайт компании", "company": e["name"], "title": title,
                "location": det.get("location") or "", "published": det.get("published"), "url": url,
                "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}
         if rec["title_tier"] == "prefer" and det.get("description"):
@@ -915,6 +956,405 @@ def scan_ashby(e):
     return jobs
 
 
+# ----------------------------------------------------------------------------- eigene Karriereseiten und weitere Stellensysteme
+# Seit 15.11.2026: Firmen ohne Personio/JOIN/Recruitee/… werden direkt von ihrer Karriereseite gelesen (vorher las die
+# Morgenaufgabe sie per WebFetch oder sah sie gar nicht — nur über die Jobbörse nach Namen). robots.txt wird beachtet,
+# Schutz gegen automatische Abrufe wird nicht umgangen.
+
+ROBOTS = {}
+PAGE_UA = {**UA, "Accept-Language": "de-DE,de;q=0.9,en;q=0.8"}
+
+
+def robots_ok(url):
+    """robots.txt der Seite (Kennung «jobscan»): nicht lesbar → erlaubt; 401/403 → verboten."""
+    p = urlparse(url)
+    base = f"{p.scheme}://{p.netloc}"
+    if base not in ROBOTS:
+        rp = None
+        try:
+            r = requests.get(base + "/robots.txt", headers=PAGE_UA, timeout=20)
+            if r.status_code in (401, 403):
+                rp = False
+            elif r.status_code == 200 and "<html" not in r.text[:300].lower():
+                rp = robotparser.RobotFileParser()
+                rp.parse(r.text.splitlines())
+        except Exception:  # noqa: BLE001
+            rp = None
+        ROBOTS[base] = rp
+    rp = ROBOTS[base]
+    if rp is None:
+        return True
+    if rp is False:
+        return False
+    try:
+        return rp.can_fetch("jobscan", url)
+    except Exception:  # noqa: BLE001
+        return True
+
+
+def page_get(url, quiet=False, as_json=False):
+    """Seite als Text (oder JSON); None, wenn robots.txt es verbietet oder die Seite nicht lädt."""
+    if not robots_ok(url):
+        if not quiet:
+            err(f"robots.txt verbietet {url}")
+        return None
+    raw = http_get(url, headers=PAGE_UA, as_json=as_json) if not quiet else _get_quiet(url, as_json)
+    if raw is None or as_json:
+        return raw
+    if isinstance(raw, bytes):
+        try:
+            return raw.decode("utf-8")
+        except UnicodeDecodeError:
+            return raw.decode("cp1252", "replace")
+    return raw
+
+
+def _get_quiet(url, as_json):
+    try:
+        r = requests.get(url, headers=PAGE_UA, timeout=30)
+        if r.status_code != 200:
+            return None
+        return r.json() if as_json else r.content
+    except Exception:  # noqa: BLE001
+        return None
+
+
+A_TAG = re.compile(r"""<a\b((?:[^>"']|"[^"]*"|'[^']*')*)>(.*?)</a>""", re.S | re.I)
+A_HREF = re.compile(r"""href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))""", re.I)
+A_TITLE = re.compile(r"""(?:title|aria-label)\s*=\s*(?:"([^"]+)"|'([^']+)')""", re.I)
+NAV_TAIL = re.compile(r"\s*(?:mehr erfahren|mehr infos?|alle infos|jetzt bewerben|zur stelle|zum job|zur stellenanzeige|stelle ansehen|"
+                      r"stelle anzeigen|details|mehr|weiterlesen|view job|read more|learn more|apply now|more|»|›|→)\s*$", re.I)
+TAG_RE = re.compile(r"""<(?:[^>"']|"[^"]*"|'[^']*')*>""")
+TITLE_PREFIX = re.compile(r"^(?:Bewirb (?:dich|Dich) (?:jetzt )?als|Bewerben Sie sich (?:jetzt )?als|Stellenanzeige\s*[-–:|]|Stellenangebot\s*[-–:|]|"
+                          r"Job Opening\s*[-–:|]|Jobangebot\s*[-–:|])\s*", re.I)
+# keine echte Stelle: Initiativbewerbung, allgemeiner Aufruf
+NOT_A_JOB = re.compile(r"^\s*(?:Initiativ\w*|Spontaneous application|Open application|Unsolicited application)|Initiativbewerbung|"
+                       r"Wir wachsen und suchen Dich|Initiativ bewerben", re.I)
+
+
+def clean_title(t):
+    t = re.sub(r"\s+", " ", html.unescape(t or "")).strip()
+    return TITLE_PREFIX.sub("", t).strip(" -–|:")
+
+
+GENDER_MARK = re.compile(r"\(\s*[mwdfxi](?:\s*[/|*,]\s*[mwdfxi]){1,3}\s*\)|\ball genders\b|\(gn\)|\b[mwd]/[mwd]/[mwd]\b|\b[mf]/[mf]/[dx]\b|\(alle\)", re.I)
+
+
+def page_links(base, text):
+    """(Adresse, Linktext, title-Attribut) aller Links einer Seite."""
+    out = []
+    for m in A_TAG.finditer(text or ""):
+        h = A_HREF.search(m.group(1))
+        if not h:
+            continue
+        href = html.unescape(next(g for g in h.groups() if g is not None)).strip()
+        if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
+            continue
+        label = re.sub(r"\s+", " ", html.unescape(TAG_RE.sub(" ", re.sub(r"<(script|style|svg)\b.*?</\1>", " ", m.group(2), flags=re.S | re.I)))).strip()
+        t = A_TITLE.search(m.group(1))
+        alt = html.unescape(next(g for g in t.groups() if g)) if t else ""
+        out.append((urljoin(base, href).split("#")[0], label, alt))
+    return out
+
+
+def _nav_strip(s):
+    s = (s or "").strip()
+    while True:
+        n = NAV_TAIL.sub("", s).strip()
+        if n == s:
+            return s
+        s = n
+
+
+def page_details(url, details_cache, pv_only=False):
+    """Titel, Ort, Datum und Text einer Stellenseite (JSON-LD, sonst <main>/<article>), Cache "pg:<Adresse>".
+    None, wenn die Seite nicht lesbar ist (dann Titel und Ort aus der Liste)."""
+    key = f"pg:{url}"
+    if key in details_cache:
+        return details_cache[key]
+    if re.search(r"\.pdf(?:$|\?)", url, re.I):
+        return None
+    t = page_get(url, quiet=True)
+    if not t:
+        return None
+    det = xing_details(t) or {}
+    if not det.get("description"):
+        m = re.search(r"<main\b[^>]*>(.*?)</main>", t, re.S | re.I) or re.search(r"<article\b[^>]*>(.*?)</article>", t, re.S | re.I)
+        b = None if m else re.search(r"<body\b[^>]*>(.*)</body>", t, re.S | re.I)
+        body = m.group(1) if m else (b.group(1) if b else "")
+        body = re.sub(r"<(script|style|nav|header|footer|form|svg|noscript)\b.*?</\1>", " ", body, flags=re.S | re.I)
+        det["description"] = strip_html(body)
+        det["text_from"] = "main" if m else ("body" if b else "none")
+    if not det.get("title"):
+        h1 = re.search(r"<h1\b[^>]*>(.*?)</h1>", t, re.S | re.I)
+        ttl = re.search(r"<title[^>]*>(.*?)</title>", t, re.S | re.I)
+        raw = strip_html(h1.group(1)) if h1 else (strip_html(ttl.group(1)) if ttl else "")
+        det["title"] = re.split(r"\s+[|–-]\s+(?=[^|–-]*$)", raw)[0].strip() if raw and not h1 else raw
+    det["cached_at"] = TODAY
+    details_cache[key] = det
+    time.sleep(0.6)
+    return det
+
+
+def scan_page(e, details_cache):
+    """Eigene Karriereseite: Stellen-Links nach Muster e["link"] (Regex auf die volle Adresse, Gruppe «id» = Stellen-Nr.).
+    Titel aus dem Linktext (e["title_regex"]: Gruppen title/loc/org), sonst von der Stellenseite; e["keep"]/e["drop"]:
+    Regex auf den Linktext; e["need_marker"]: nur Links mit (m/w/d) o. ä.; e["paginate"]: {"url": "...{n}...", "start",
+    "step", "max"}; e["text"] = false: Stellenseiten nicht öffnen; e["mode"] = "headings": Stellen stehen nur als
+    Überschrift auf der Seite (ohne eigenen Link)."""
+    link_rx = re.compile(e.get("link") or r"^$", re.I)
+    title_rx = re.compile(e["title_regex"], re.I | re.S) if e.get("title_regex") else None
+    keep_rx = re.compile(e["keep"], re.I) if e.get("keep") else None
+    drop_rx = re.compile(e["drop"], re.I) if e.get("drop") else None
+    urls = [e["url"]] + list(e.get("urls") or [])
+    pg = e.get("paginate")
+    if pg:
+        urls += [pg["url"].format(n=pg.get("start", 0) + i * pg.get("step", 1)) for i in range(int(pg.get("max", 10)))]
+    found, loaded = {}, 0
+    for u in urls:
+        t = page_get(u)
+        if t is None:
+            if pg and loaded:
+                break
+            continue
+        loaded += 1
+        before = len(found)
+        if e.get("mode") == "headings":
+            for m in re.finditer(r">([^<>]{6,140})<", t):
+                txt = re.sub(r"\s+", " ", html.unescape(m.group(1))).strip()
+                if not GENDER_MARK.search(txt) or re.search(r"\b(?:wir|suchen|unser|unsere|Sie|du|zum nächstmöglichen)\b", txt):
+                    continue
+                if title_rx:
+                    mm = title_rx.search(txt)
+                    if not mm:
+                        continue
+                    txt = (mm.groupdict().get("title") or mm.group(1)).strip()
+                key = re.sub(r"[^a-z0-9]+", "-", txt.lower()).strip("-")[:80]
+                found.setdefault(key, {"url": f"{u}#{key}", "label": txt, "alt": "", "key": key})
+            continue
+        for url, label, alt in page_links(u, t):
+            m = link_rx.search(url)
+            if not m:
+                continue
+            full = f"{label} {alt}".strip()
+            if e.get("need_marker") and not GENDER_MARK.search(full):
+                continue
+            key = (m.groupdict().get("id") if "id" in link_rx.groupindex else None) or re.sub(r"^https?://(www\.)?", "", url).rstrip("/")
+            cur = found.get(key)
+            lab = _nav_strip(label)
+
+            def good(x):
+                return 4 <= len(x) <= 120
+            if cur is None:
+                found[key] = {"url": url, "label": lab, "alt": alt, "key": key}
+            elif (GENDER_MARK.search(lab) and good(lab) and not GENDER_MARK.search(cur["label"])) or (good(lab) and not good(cur["label"])):
+                cur.update({"label": lab, "alt": alt or cur["alt"]})
+        if pg and len(found) == before and u != e["url"]:
+            break  # Blättern: keine neuen Stellen mehr
+        time.sleep(0.5)
+    if not loaded:
+        return None
+    jobs, fetched, max_new = [], 0, int(e.get("max_details", 40))
+    for key, f in found.items():
+        label = f["label"] or f["alt"]
+        title, loc, org = label, "", ""
+        if title_rx and label and e.get("mode") != "headings":
+            mm = title_rx.search(label)
+            if mm:
+                gd = mm.groupdict()
+                title = (gd.get("title") or (mm.group(1) if mm.groups() else label) or "").strip()
+                loc, org = (gd.get("loc") or "").strip(), (gd.get("org") or "").strip()
+        if keep_rx and not keep_rx.search(label):
+            continue
+        if drop_rx and drop_rx.search(label):
+            continue
+        det = None
+        need_title = not title or len(title) < 4
+        want = need_title or e.get("title_from") == "page" or title_tier(title) != "drop"
+        if e.get("text", True) and e.get("mode") != "headings" and want:
+            cached = f"pg:{f['url']}" in details_cache
+            if cached or fetched < max_new:
+                det = page_details(f["url"], details_cache)
+                fetched += 0 if cached else 1
+        det = det or {}
+        if need_title or e.get("title_from") == "page":
+            title = det.get("title") or title
+        title = clean_title(title)
+        if not title or NOT_A_JOB.search(title):
+            continue
+        if det.get("countries") and not any(c in GERMANY for c in det["countries"]) and not e.get("any_country"):
+            continue
+        sid = key if len(str(key)) <= 40 else hashlib.sha1(str(key).encode("utf-8")).hexdigest()[:12]
+        rec = {"id": f"pg-{e['id']}-{sid}", "source": "Сайт компании", "company": e["name"], "title": title,
+               "location": det.get("location") or loc or "", "published": det.get("published"), "url": f["url"],
+               "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}
+        text = det.get("description") or ""
+        if rec["title_tier"] == "prefer" and text:
+            rec["description"] = cut(text)
+        if e.get("pv_only"):
+            rec["_text"] = text if det.get("text_from") not in ("none", "body") else ""
+        jobs.append(rec)
+    return jobs
+
+
+def scan_dvinci(e):
+    """d.vinci (<firma>.dvinci-hr.com oder eigene Domain): /jobPublication/list.json — alle Stellen mit Text.
+    e["keep"]: Regex auf Titel und internen Namen der Ausschreibung (eine Börse für mehrere Firmen)."""
+    host = e["host"]
+    d = page_get(f"https://{host}/jobPublication/list.json", as_json=True)
+    if not isinstance(d, list):
+        return None
+    keep_rx = re.compile(e["keep"], re.I) if e.get("keep") else None
+    jobs = []
+    for p in d:
+        if not isinstance(p, dict):
+            continue
+        title = (p.get("position") or p.get("pageTitle") or "").strip()
+        op = p.get("jobOpening") if isinstance(p.get("jobOpening"), dict) else {}
+        if NOT_A_JOB.search(title):
+            continue
+        if keep_rx and not keep_rx.search(f"{title} {op.get('name') or ''}"):
+            continue
+        locs = []
+        for lo in op.get("locations") or []:
+            if isinstance(lo, dict):
+                a = lo.get("address") if isinstance(lo.get("address"), dict) else {}
+                locs.append(lo.get("name") or lo.get("city") or a.get("city") or "")
+        text = strip_html(" \n".join(str(p.get(k) or "") for k in ("introduction", "tasks", "profile", "weOffer") if p.get(k)))
+        rec = {"id": f"dvinci-{e['id']}-{p.get('id')}", "source": "Сайт компании", "company": e["name"], "title": title,
+               "location": ", ".join(x for x in locs if x), "published": (p.get("startDate") or "")[:10] or None,
+               "url": p.get("jobPublicationURL") or f"https://{host}/de/jobs/{p.get('id')}",
+               "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}
+        if rec["title_tier"] == "prefer" and text:
+            rec["description"] = cut(text)
+        if e.get("pv_only"):
+            rec["_text"] = text
+        jobs.append(rec)
+    return jobs
+
+
+def scan_workable(e):
+    """Workable (apply.workable.com/<konto>): Widget-Liste; Text für passende Titel aus der v2-Schnittstelle."""
+    acc = e["account"]
+    d = page_get(f"https://apply.workable.com/api/v1/widget/accounts/{acc}", as_json=True)
+    if not isinstance(d, dict):
+        return None
+    crx = re.compile(e.get("country_regex") or r"Germany|Deutschland", re.I)
+    jobs = []
+    for j in d.get("jobs") or []:
+        places = [j] + [x for x in (j.get("locations") or []) if isinstance(x, dict)]
+        if not any(crx.search(str(x.get("country") or "")) for x in places):
+            continue
+        title = j.get("title") or ""
+        rec = {"id": f"workable-{acc}-{j.get('shortcode')}", "source": "Сайт компании", "company": e["name"], "title": title,
+               "location": ", ".join(x for x in (j.get("city"), j.get("country")) if x), "remote": bool(j.get("telecommuting")),
+               "published": j.get("published_on") or j.get("created_at"), "url": j.get("url") or j.get("shortlink"),
+               "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}
+        if rec["title_tier"] == "prefer":
+            det = page_get(f"https://apply.workable.com/api/v2/accounts/{acc}/jobs/{j.get('shortcode')}", quiet=True, as_json=True)
+            if isinstance(det, dict):
+                rec["description"] = cut(strip_html(f"{det.get('description') or ''} {det.get('requirements') or ''}"))
+            time.sleep(1.0)
+        jobs.append(rec)
+    return jobs
+
+
+def scan_greenhouse(e):
+    """Greenhouse (boards-api.greenhouse.io / boards-api.eu.greenhouse.io): Liste mit Text (content=true)."""
+    api = e.get("api") or "boards-api.greenhouse.io"
+    d = page_get(f"https://{api}/v1/boards/{e['board']}/jobs?content=true", as_json=True)
+    if not isinstance(d, dict):
+        return None
+    lrx = re.compile(e.get("location_regex") or r"German|Deutschland|Berlin|Hamburg|München|Munich|Frankfurt|Köln|Stuttgart|Remote", re.I)
+    jobs = []
+    for j in d.get("jobs") or []:
+        loc = ((j.get("location") or {}).get("name") or "") if isinstance(j.get("location"), dict) else ""
+        if not lrx.search(loc):
+            continue
+        title = j.get("title") or ""
+        rec = {"id": f"gh-{e['board']}-{j.get('id')}", "source": "Сайт компании", "company": e["name"], "title": title,
+               "location": loc, "published": (j.get("updated_at") or "")[:10] or None, "url": j.get("absolute_url"),
+               "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}
+        if rec["title_tier"] == "prefer":
+            rec["description"] = cut(strip_html(html.unescape(j.get("content") or "")))
+        jobs.append(rec)
+    return jobs
+
+
+def scan_rss(e):
+    """RSS-Liste der Stellen (z. B. Avature: …/SearchJobs/feed/). e["keep"]: Regex auf den Titel."""
+    t = page_get(e["url"])
+    if t is None:
+        return None
+    try:
+        root = ET.fromstring(t.encode("utf-8"))
+    except Exception as ex:  # noqa: BLE001
+        err(f"RSS {e['name']}: {ex}")
+        return None
+    keep_rx = re.compile(e["keep"], re.I) if e.get("keep") else None
+    jobs = []
+    for it in root.iter("item"):
+        title = (it.findtext("title") or "").strip()
+        link = (it.findtext("link") or "").strip()
+        if not title or NOT_A_JOB.search(title) or (keep_rx and not keep_rx.search(title)):
+            continue
+        m = re.search(e.get("id_regex") or r"jobId=(\d+)", link)
+        text = strip_html(it.findtext("description") or "")
+        pub = it.findtext("pubDate") or ""
+        try:
+            pub = dt.datetime.strptime(pub[:16].strip(), "%a, %d %b %Y").date().isoformat() if pub else None
+        except Exception:  # noqa: BLE001
+            pub = None
+        rec = {"id": f"rss-{e['id']}-{m.group(1) if m else hashlib.sha1(link.encode('utf-8')).hexdigest()[:12]}", "source": "Сайт компании",
+               "company": e["name"], "title": title, "location": "", "published": pub, "url": link,
+               "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}
+        if rec["title_tier"] == "prefer" and len(text) > 200:
+            rec["description"] = cut(text)
+        if e.get("pv_only"):
+            rec["_text"] = text
+        jobs.append(rec)
+    return jobs
+
+
+def _jget(obj, path):
+    for part in [p for p in (path or "").split(".") if p]:
+        obj = obj.get(part) if isinstance(obj, dict) else None
+    return obj
+
+
+def scan_jsonlist(e):
+    """Stellenliste als JSON (eigene Schnittstelle der Firma, WordPress «job-listings»): e["items"] = Pfad zur Liste,
+    e["fields"] = {"id", "title", "text", "date", "url"} (Pfade mit Punkt), e["url_template"] mit {id}."""
+    d = page_get(e["url"], as_json=True)
+    if d is None:
+        return None
+    items = _jget(d, e.get("items")) if e.get("items") else d
+    if not isinstance(items, list):
+        err(f"JSON {e['name']}: keine Liste unter «{e.get('items')}»")
+        return None
+    f = e.get("fields") or {}
+    jobs = []
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        jid = _jget(it, f.get("id", "id"))
+        title = strip_html(html.unescape(str(_jget(it, f.get("title", "title")) or "")))
+        if not title or NOT_A_JOB.search(title):
+            continue
+        url = _jget(it, f["url"]) if f.get("url") else None
+        url = url or (e.get("url_template") or "").format(id=jid)
+        text = strip_html(html.unescape(str(_jget(it, f.get("text", "")) or ""))) if f.get("text") else ""
+        rec = {"id": f"js-{e['id']}-{jid}", "source": "Сайт компании", "company": e["name"], "title": title, "location": "",
+               "published": str(_jget(it, f.get("date", "")) or "")[:10] or None, "url": url,
+               "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}
+        if rec["title_tier"] == "prefer" and text:
+            rec["description"] = cut(text)
+        if e.get("pv_only"):
+            rec["_text"] = text
+        jobs.append(rec)
+    return jobs
+
+
 def _title_key(t):
     t = re.sub(r"\((?:[mwfdx]\s*/\s*){1,3}[mwfdx]\)|\(all genders\)|\(alle\)", " ", (t or "").lower())
     return re.sub(r"[^0-9a-zäöüß]+", "", t)
@@ -926,7 +1366,9 @@ def scan_feeds(details_cache):
     # Tabelle); vom zweiten System kommen nur Stellen mit neuem Titel dazu.
     kinds = (("join", lambda e: scan_join(e, details_cache)), ("ashby", scan_ashby), ("personio", scan_personio),
              ("recruitee", scan_recruitee), ("smartrecruiters", scan_smartrecruiters), ("workday", scan_workday),
-             ("sitemap", lambda e: scan_sitemap(e, details_cache)))
+             ("sitemap", lambda e: scan_sitemap(e, details_cache)), ("dvinci", scan_dvinci), ("workable", scan_workable),
+             ("greenhouse", scan_greenhouse), ("rss", scan_rss), ("jsonlist", scan_jsonlist),
+             ("page", lambda e: scan_page(e, details_cache)))
     counts = {}
     for kind, fn in kinds:
         for e in CFG.get(kind, []):
@@ -935,6 +1377,8 @@ def scan_feeds(details_cache):
             except Exception as ex:  # noqa: BLE001
                 err(f"{kind} {e.get('name')}: {ex}")
                 jobs = None
+            if kind == "page":
+                STATS.setdefault("page_counts", {})[e["id"]] = None if jobs is None else len(jobs)
             if jobs and e.get("pv_only"):
                 # Arbeitgeber ohne PV/BESS-Schwerpunkt (Konzern, Stadtwerk): nur Stellen mit PV/Speicher/Netzanschluss
                 # im Titel oder mindestens zweimal im Text — sonst füllt der Standardtext der Firma die Liste
@@ -1706,6 +2150,8 @@ def health(prefer, boards, minutes):
     join_bad = sum(1 for e in ERRORS if e.startswith("JOIN") and "unvollständig" in e)
     if join_bad >= 3:
         alerts.append(f"JOIN: список вакансий неполный у {join_bad} из {len(CFG.get('join', []))} компаний")
+    if STATS.get("pages_went_empty"):
+        alerts.append("страницы вакансий вдруг пусты (проверить разметку): " + ", ".join(STATS["pages_went_empty"][:6]))
     failed = (STATS.get("feeds") or {}).get("failed") or []
     if failed:
         alerts.append("ленты компаний не загрузились: " + ", ".join(failed[:6]) + (f" и ещё {len(failed) - 6}" if len(failed) > 6 else ""))
@@ -1795,6 +2241,16 @@ def main():
                 j["title_tier"] = "drop"
         entry["jobs"] = [j for j in allj if j.get("title_tier") != "drop"]
     STATS["title_soft"] = soft_st
+    # Karriereseiten (eigene Seite der Firma): bisher Stellen, heute keine einzige → vermutlich neue Seitenstruktur
+    pz = seen.setdefault("pages_nonzero", {})
+    since = (NOW - dt.timedelta(days=14)).date().isoformat()
+    went = []
+    for cid, n in (STATS.get("page_counts") or {}).items():
+        if n:
+            pz[cid] = TODAY
+        elif n == 0 and (pz.get(cid) or "") >= since:
+            went.append((watch.get(cid) or {}).get("name") or cid)
+    STATS["pages_went_empty"] = went
     # Quelle nicht geladen und keine Stellen: Firma nicht in watch aufnehmen — sonst hält die Morgenaufgabe sie
     # für erledigt und prüft sie nicht (so fielen 05.–06.11. fünf Personio-Firmen still aus).
     failed = sorted(k for k, v in watch.items() if v.get("error") and not v.get("jobs_total"))
@@ -1838,7 +2294,7 @@ def main():
             "blind": "beobachtete Firmen, von denen die Jobbörse seit 30 Tagen keine einzige Stelle zeigt — dort nicht sichtbar",
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
-            "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby, Sitemap): id → {name, method, jobs[]}; first_seen je Stelle = wann der Scanner sie zum ersten Mal sah (die Morgenaufgabe nimmt nur Stellen nach ihrem letzten Lauf); jobs mit title_tier prefer haben meist description (Personio über search.json ohne); JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten). Firmen, deren Quelle heute nicht lud, fehlen hier (stats.watch_failed) — selbst prüfen",
+            "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby, Sitemap, d.vinci, Workable, Greenhouse, RSS, JSON, eigene Karriereseite = page): id → {name, method, jobs[]}; first_seen je Stelle = wann der Scanner sie zum ersten Mal sah (die Morgenaufgabe nimmt nur Stellen nach ihrem letzten Lauf); jobs mit title_tier prefer haben meist description (Personio über search.json ohne); JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten). Firmen, deren Quelle heute nicht lud, fehlen hier (stats.watch_failed) — selbst prüfen",
             "title_soft": "true an Stellen in candidates, watch und boards: der Titel enthält ein «weiches» Ausschlusswort (config title_soft: Montage, Kundenservice, Customer Success, Logistik, Gas, Wasser, Vertriebsinnendienst; oder Senior neben Junior) und ein Rollenwort; behalten, weil es einen PV-/Speicherbezug gibt (eigene Liste einer beobachteten Firma, Wort im Titel/Firmennamen oder im Text; stats.title_soft). Kein Urteil über die Rolle — nach Fokus und Volltext entscheiden",
             "boards": "verify=true: Fundstelle nur auf einer Seite mit vielen veralteten Anzeigen (config stale_hosts) — zweite Fundstelle suchen, ohne sie nicht aufnehmen; eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); first_seen = wann der Scanner die Stelle zum ersten Mal sah (nur Stellen nach dem letzten eigenen Lauf nehmen); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
         },
