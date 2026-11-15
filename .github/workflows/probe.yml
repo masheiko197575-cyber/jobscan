@@ -10,7 +10,7 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - name: Daten vom data-Branch (today.json)
@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install requests python-jobspy
-      - run: python probe4.py
+      - run: python probe5.py
       - name: Ergebnis in Branch probe-out
         if: always()
         run: |

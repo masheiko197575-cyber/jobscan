@@ -252,7 +252,11 @@
     {"id": "kraftblock", "name": "Kraftblock", "feed": "https://kraftblock.jobs.personio.de/xml"},
     {"id": "polarstern", "name": "Polarstern", "feed": "https://polarstern-gmbh.jobs.personio.de/xml"},
     {"id": "buergerwerke", "name": "Bürgerwerke", "feed": "https://buergerwerke.jobs.personio.de/xml"},
-    {"id": "enerparc", "name": "Enerparc", "feed": "https://enerparc.jobs.personio.de/xml"}
+    {"id": "enerparc", "name": "Enerparc", "feed": "https://enerparc.jobs.personio.de/xml"},
+    {"id": "centroplan", "name": "Centroplan", "feed": "https://centroplan-gmbh.jobs.personio.de/xml"},
+    {"id": "trina-solar", "name": "Trina Solar", "feed": "https://trina-solar-1.jobs.personio.de/xml", "location_regex": "Germany|Deutschland"},
+    {"id": "sunnic-lighthouse", "name": "Sunnic Lighthouse", "feed": "https://sunnic.jobs.personio.de/xml"},
+    {"id": "solar-energie-andresen", "name": "Solar-Energie Andresen", "feed": "https://solar-andresen.jobs.personio.de/xml"}
   ],
   "recruitee": [
     {"id": "instagrid", "name": "instagrid", "api": "https://instagrid.recruitee.com/api/offers/"},
@@ -305,7 +309,23 @@
     {"id": "stabl-energy", "name": "STABL Energy", "slug": "stabl"},
     {"id": "strrom", "name": "strrom", "slug": "strrom"},
     {"id": "voltstorage", "name": "VoltStorage", "slug": "voltstorage"},
-    {"id": "wegatech-greenergy", "name": "Wegatech Greenergy", "slug": "wegatech"}
+    {"id": "wegatech-greenergy", "name": "Wegatech Greenergy", "slug": "wegatech"},
+    {"id": "bullfrog-energy", "name": "Bullfrog Energy", "slug": "bullfrogenergyde"},
+    {"id": "calo-sol", "name": "CALO.SOL", "slug": "calosol"},
+    {"id": "climova", "name": "CLIMOVA", "slug": "climova"},
+    {"id": "d-5-energie", "name": "D,5 Energie", "slug": "d5-energie"},
+    {"id": "energiebauern", "name": "Energiebauern", "slug": "energiebauern"},
+    {"id": "enova-unternehmensgruppe", "name": "ENOVA Unternehmensgruppe", "slug": "enova1"},
+    {"id": "fbs-systems", "name": "FBS-Systems", "slug": "fbs-systems"},
+    {"id": "green-tc", "name": "Green TC", "slug": "green-tc"},
+    {"id": "ibm-solar", "name": "IBM-Solar", "slug": "ibm-solar"},
+    {"id": "kleines-kraftwerk", "name": "Kleines Kraftwerk", "slug": "kleineskraftwerk"},
+    {"id": "pvstrom-solar-investments", "name": "PVStrom Solar Investments", "slug": "pvstrom"},
+    {"id": "r-power-deutschland", "name": "R.Power Deutschland", "slug": "rpower"},
+    {"id": "sb-rhein-solar", "name": "SB Rhein Solar", "slug": "rheinsolar"},
+    {"id": "smartana", "name": "SMARTANA", "slug": "smartana"},
+    {"id": "solario", "name": "Solario", "slug": "solario"},
+    {"id": "timeless-planet", "name": "Timeless Planet", "slug": "timeless-planet"}
   ],
   "ashby": [
     {"id": "galvany", "name": "GALVANY", "board": "galvany"},
@@ -324,11 +344,63 @@
     {"id": "canadian-solar-e-storage", "name": "Canadian Solar", "host": "canadiansolar.wd5.myworkdayjobs.com", "tenant": "canadiansolar", "site": "CanadianSolar", "location_regex": "German|Deutschland|Munich|München|Berlin|Hamburg|Frankfurt"},
     {"id": "zeppelin-power-systems", "name": "Zeppelin Power Systems", "host": "zeppelin.wd3.myworkdayjobs.com", "tenant": "zeppelin", "site": "careers", "searchText": "Power Systems", "location_regex": "German|Deutschland|Hamburg|Achim|Berlin|Köln|Remote"},
     {"id": "energiedienst", "name": "Energiedienst", "host": "energiedienst.wd103.myworkdayjobs.com", "tenant": "energiedienst", "site": "1894-1898-2002"},
-    {"id": "cip", "name": "Copenhagen Infrastructure Partners (Hamburg)", "host": "cip.wd103.myworkdayjobs.com", "tenant": "cip", "site": "CIP_TT", "location_regex": "German|Deutschland|Hamburg|Berlin|Munich|München"}
+    {"id": "cip", "name": "Copenhagen Infrastructure Partners (Hamburg)", "host": "cip.wd103.myworkdayjobs.com", "tenant": "cip", "site": "CIP_TT", "location_regex": "German|Deutschland|Hamburg|Berlin|Munich|München"},
+    {"id": "getec", "name": "GETEC", "host": "getec.wd103.myworkdayjobs.com", "tenant": "getec", "site": "External_Careers", "facet_match": "^Deutschland", "pv_only": true},
+    {"id": "pramac", "name": "Pramac", "host": "generac.wd5.myworkdayjobs.com", "tenant": "generac", "site": "ExternalCareers", "facet_match": "Germany"}
   ],
   "sitemap": [
     {"id": "enbw", "name": "EnBW", "sitemap": "https://careers.enbw.com/sitemap.xml", "pv_only": true},
-    {"id": "netze-bw", "name": "Netze BW", "sitemap": "https://careers.netze-bw.de/sitemap.xml", "pv_only": true}
+    {"id": "netze-bw", "name": "Netze BW", "sitemap": "https://careers.netze-bw.de/sitemap.xml", "pv_only": true},
+    {"id": "metka-egn-germany", "name": "METKA EGN Germany", "sitemap": "https://careers.metlen.com/sitemap.xml", "job_regex": "/job/[^/]*?Germany-(?P<slug>.+)-[A-Za-z]{3,5}-\\d{4,6}/(?P<id>\\d+)/", "details": false},
+    {"id": "neoen-deutschland", "name": "Neoen Deutschland", "sitemap": "https://careers.neoen.com/sitemap.xml", "job_regex": "/annonce/(?P<id>\\d+)-(?P<slug>[^/?#]+)", "max_details": 60}
+  ],
+  "dvinci": [
+    {"id": "scharr", "name": "SCHARR", "host": "scharr.dvinci-hr.com", "pv_only": true},
+    {"id": "flughafen-stuttgart", "name": "Flughafen Stuttgart", "host": "stuttgart-airport.dvinci-hr.com", "pv_only": true},
+    {"id": "ads-tec-energy", "name": "ADS-TEC Energy", "host": "adstec-karriere.dvinci-hr.com"},
+    {"id": "encavis", "name": "Encavis", "host": "encavis.dvinci-hr.com", "pv_only": true},
+    {"id": "albwerk", "name": "Albwerk", "host": "albwerk-karriere.de", "pv_only": true}
+  ],
+  "workable": [
+    {"id": "enfinity-global", "name": "Enfinity Global", "account": "enfinity-global-2"}
+  ],
+  "greenhouse": [],
+  "rss": [
+    {"id": "tennet", "name": "TenneT", "url": "https://careers.tennet.eu/de_DE/careers/SearchJobs/feed/?jobRecordsPerPage=1000", "keep": "\\((?:m/w/d|w/m/d|d/m/w|m/f/d|f/m/d|all genders)\\)", "pv_only": true}
+  ],
+  "jsonlist": [
+    {"id": "autargreen", "name": "Autargreen", "url": "https://hub.autargreen.de/api/public/jobs", "items": "jobs", "fields": {"id": "id", "title": "titel", "text": "beschreibung", "date": "created_at"}, "url_template": "https://autargreen.de/karriere#{id}"},
+    {"id": "kodiak", "name": "KODIAK", "url": "https://kodiak.eu/wp-json/wp/v2/job-listings?per_page=100", "items": "", "fields": {"id": "id", "title": "title.rendered", "text": "content.rendered", "date": "date", "url": "link"}, "pv_only": true}
+  ],
+  "page": [
+    {"id": "energiewerk", "name": "Energiewerk", "url": "https://karriere.energiewerk.com/de", "link": "karriere\\.energiewerk\\.com/de\\?id=(?P<id>[0-9a-f]{4,})"},
+    {"id": "greentech", "name": "Greentech", "url": "https://jobs.greentech.energy/de", "link": "jobs\\.greentech\\.energy/de\\?id=(?P<id>[0-9a-f]{4,})"},
+    {"id": "powerwerker", "name": "PowerWerker", "url": "https://powerwerker.de/karriere/", "link": "^https://powerwerker\\.de/(?P<id>[a-z0-9-]{8,})/?$", "need_marker": true},
+    {"id": "oeko-haus", "name": "ÖKO-HAUS", "url": "https://www.oeko-haus.com/karriere/", "link": "oeko-haus\\.com/karriere/(?P<id>[a-z0-9-]{4,})/?$"},
+    {"id": "franz-scheuerle-ulm", "name": "Franz Scheuerle Ulm", "url": "https://www.gc-gruppe.de/unternehmen/franz-scheuerle-ulm-kg/jobs", "link": "/unternehmen/franz-scheuerle-ulm-kg/jobs/[a-z0-9-]+-(?P<id>\\d+)/?$", "title_from": "page", "pv_only": true},
+    {"id": "climagy", "name": "Climagy", "url": "https://www.climagy.de/karriere/", "link": "/wp-content/uploads/(?P<id>.+Stellenausschreibung\\.pdf)$", "title_regex": "„\\s*(?P<title>[^“]+?)\\s*“"},
+    {"id": "blue-elephant-energy", "name": "Blue Elephant Energy", "url": "https://blueelephantenergy.com/karriere", "link": "blueelephantenergy\\.com/karriere/(?P<id>[a-z0-9-]{4,})/?$"},
+    {"id": "dew21", "name": "DEW21", "url": "https://recruitingapp-5083.de.umantis.com/Jobs/All", "link": "umantis\\.com/Vacancies/(?P<id>\\d+)/Description/"},
+    {"id": "jurchen-technology", "name": "Jurchen Technology", "url": "https://www.jurchen-technology.de/unternehmen/jurchen-technology/ueber-uns/karriere/", "link": "/ueber-uns/karriere/(?P<id>[a-z0-9_-]{4,})/?$", "need_marker": true},
+    {"id": "kea-bw", "name": "KEA-BW", "url": "https://www.kea-bw.de/servicemenu/stellenausschreibungen", "link": "/fileadmin/user_upload/Footer/Karriere/(?P<id>[^/]+\\.pdf)$", "title_regex": "^(?P<title>.+?)(?:\\s+Stundenumfang\\b.*)?$"},
+    {"id": "kreiswerke-barnim", "name": "Kreiswerke Barnim", "url": "https://kreiswerke-barnim.de/mehr-ueber-uns/karriere/stellenangebote", "link": "kreiswerke-barnim\\.de/(?:component/content/article|mehr-ueber-uns/karriere/stellenangebote)/(?P<id>[a-z0-9-]{4,})", "need_marker": true},
+    {"id": "stadtwerke-tuebingen", "name": "Stadtwerke Tübingen (swt)", "url": "https://www.swtue.de/unternehmen/karriere/offene-stellen.html", "link": "/offene-stellen-detailansicht/(?P<id>[a-z0-9-]+)\\.html"},
+    {"id": "thuega-erneuerbare-energien", "name": "Thüga Erneuerbare Energien", "url": "https://thuegaaktiengesellschaft.softgarden.io/de/vacancies", "link": "softgarden\\.io/job/(?P<id>\\d+)/"},
+    {"id": "e3dc", "name": "E3/DC (Hager Energy)", "url": "https://www.e3dc.com/unternehmen/karriere/", "link": "careers\\.hager\\.com/de/stellenbeschreibung/[^/]+/[^/]+/\\d+/(?P<id>\\d+)"},
+    {"id": "energieagentur-rems-murr", "name": "Energieagentur Rems-Murr", "url": "https://www.energieagentur-remsmurr.de/ueber-uns/jobs", "link": "/fileadmin/sites/e-energieagenturrm/Ueber_uns/(?P<id>[^/]+\\.pdf)$"},
+    {"id": "energiekontor", "name": "Energiekontor", "url": "https://www.energiekontor.de/karriere.html", "urls": ["https://www.energiekontor.de/karriere/freie-mitarbeiterinnen.html", "https://www.energiekontor.de/karriere/solar.html"], "link": "energiekontor\\.de/karriere/(?P<id>[^?#]+)\\.html$", "need_marker": true},
+    {"id": "evf-filstal", "name": "Energieversorgung Filstal (EVF)", "url": "https://karriere.evf.de/stellenangebote", "link": "karriere\\.evf\\.de/stellenangebote/job/(?P<id>[a-z0-9-]+)"},
+    {"id": "qcells", "name": "Hanwha Q CELLS", "url": "https://www.q-cells.de/1/ueber-uns/jobs", "urls": ["https://www.q-cells.de/jobs-en"], "link": "q-cells\\.de/(?:[a-z0-9-]+/)*(?:jobs|jobs-en|nachhaltige-jobs)/(?P<id>[a-z0-9][^?#\\\\\"]{5,})$"},
+    {"id": "pne", "name": "PNE AG", "url": "https://karriere.pne-ag.com/de", "link": "karriere\\.pne-ag\\.com/.+-j(?P<id>\\d+)\\.html", "pv_only": true},
+    {"id": "uka", "name": "UKA Umweltgerechte Kraftanlagen", "url": "https://karriere.uka-gruppe.de/stellenangebote.html", "link": "karriere\\.uka-gruppe\\.de/.+-j(?P<id>\\d+)\\.html", "pv_only": true},
+    {"id": "wpd", "name": "wpd", "url": "https://www.wpd.de/jobs/", "link": "wpd\\.de/jobs/.+-j(?P<id>\\d+)\\.html", "pv_only": true},
+    {"id": "notus-energy", "name": "notus energy", "url": "https://notus-portal.rexx-systems.com/stellenangebote.html", "link": "notus-portal\\.rexx-systems\\.com/.+-j(?P<id>\\d+)\\.html", "pv_only": true},
+    {"id": "pfalzsolar", "name": "Pfalzsolar", "url": "https://www.pfalzwerke.de/karriere/Jobs", "link": "pfalzwerke\\.de/karriere/Jobs/[^~]+~(?P<id>co\\d+)", "title_regex": "^(?P<org>[^|]+)\\|\\s*(?P<loc>[^:]+?)\\s*:\\s*(?P<title>.+)$", "keep": "^\\s*Pfalzsolar"},
+    {"id": "pfalzwerke", "name": "Pfalzwerke", "url": "https://www.pfalzwerke.de/karriere/Jobs", "link": "pfalzwerke\\.de/karriere/Jobs/[^~]+~(?P<id>co\\d+)", "title_regex": "^(?P<org>[^|]+)\\|\\s*(?P<loc>[^:]+?)\\s*:\\s*(?P<title>.+)$", "drop": "^\\s*Pfalzsolar", "pv_only": true},
+    {"id": "sbp-sonne", "name": "sbp sonne", "url": "https://www.sbp.de/jobs/", "link": "sbp\\.de/joboffer/(?P<id>[a-z0-9-]+)"},
+    {"id": "res-deutschland", "name": "RES Deutschland", "url": "https://jobs.jobvite.com/resgroup/jobs/positions?l=Germany", "link": "jobs\\.jobvite\\.com/resgroup/job/(?P<id>[A-Za-z0-9]+)$", "keep": "Germany|Deutschland", "title_from": "page"},
+    {"id": "bessr", "name": "BESSr", "url": "https://bessr-gmbh.de/karriere/", "urls": ["https://bessr-gmbh.de/career/?lang=en"], "link": "bessr-gmbh\\.de/(?:karriere|career)/(?:stellenanzeige|job-opening)-(?P<id>[a-z0-9-]+)/?(?:\\?lang=en)?$"},
+    {"id": "mein-solar", "name": "Mein Solar", "url": "https://www.mein-solar.com/Karriere", "mode": "headings"}
   ],
   "atom": [
     {"id": "eejobs", "name": "eejobs.de", "url": "https://www.eejobs.de/angebote/neueste.html?&feed=atom"},
