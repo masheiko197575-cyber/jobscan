@@ -1,6 +1,9 @@
 {
   "days": 7,
   "employer_days": 30,
+  "morning_run_berlin": "10:53",
+  "workday_gap": 2.0,
+  "workday_retry_s": 150,
   "max_details": 250,
   "max_description_chars": 4000,
   "industry_terms": ["Photovoltaik", "PV", "Solar", "Solarpark", "Solaranlagen", "Agri-PV", "Batteriespeicher", "Großbatteriespeicher", "Batteriegroßspeicher", "Energiespeicher", "Stromspeicher", "BESS", "Battery Storage", "Energy Storage", "Erneuerbare Energien", "Renewable Energy", "Mieterstrom", "Solarenergie", "Energiewende", "Freiflächenanlagen", "Netzanschluss", "Einspeisung", "Energiedienstleistungen", "Energiemanagement"],
@@ -188,6 +191,8 @@
     {"id": "lea-ludwigsburg", "name": "Ludwigsburger Energieagentur (LEA)", "query": "Ludwigsburger Energieagentur", "match": "ludwigsburger energieagentur"},
     {"id": "energieagentur-rems-murr", "name": "Energieagentur Rems-Murr", "query": "Energieagentur Rems-Murr", "match": "energieagentur rems-murr"},
     {"id": "getec", "name": "GETEC", "query": "GETEC", "match": "getec"},
+    {"id": "goldbeck-gruppe", "name": "GOLDBECK (Gruppe)", "query": "GOLDBECK Solar", "match": "goldbeck solar"},
+    {"id": "energiedienst", "name": "Energiedienst", "query": "Energiedienst", "match": "energiedienst"},
     {"id": "techem", "name": "Techem", "query": "Techem", "match": "techem"},
     {"id": "dena", "name": "Deutsche Energie-Agentur (dena)", "query": "Deutsche Energie-Agentur", "match": "deutsche energie-agentur"},
     {"id": "ostwind", "name": "OSTWIND", "query": "OSTWIND", "match": "ostwind"},
