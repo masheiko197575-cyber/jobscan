@@ -32,7 +32,7 @@ import xml.etree.ElementTree as ET
 
 import requests
 from urllib import robotparser
-from urllib.parse import unquote, urlencode, urljoin, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urljoin, urlparse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, "data")
@@ -2023,6 +2023,38 @@ def _rel_date(txt):
     return (NOW - dt.timedelta(days=days)).date().isoformat()
 
 
+def serp_doc_id(j):
+    """Googles Kennung der Anzeige (htidocid aus share_link, sonst aus der job_id): bleibt über Tage und Suchanfragen
+    gleich. Die job_id von SerpApi hängt an der Suchanfrage und ändert sich jeden Tag (16./17.11.2026: dieselbe
+    Anzeige mit zwei job_id) — als Schlüssel machte sie jede Google-Jobs-Stelle täglich «neu» (first_seen)."""
+    for lk in (j.get("share_link"), j.get("share_url")):
+        if lk and "htidocid=" in str(lk):
+            v = (parse_qs(urlparse(str(lk)).query).get("htidocid") or [None])[0]
+            if v:
+                return v
+    jid = str(j.get("job_id") or "")
+    if jid:
+        for dec in (base64.b64decode, base64.urlsafe_b64decode):
+            try:
+                v = json.loads(dec(jid + "=" * (-len(jid) % 4)).decode("utf-8")).get("htidocid")
+                if v:
+                    return v
+            except Exception:  # noqa: BLE001
+                pass
+    return None
+
+
+def board_key(b):
+    """Schlüssel einer Board-Stelle für first_seen: id; bei Google Jobs aus der Kennung der Anzeige (Dateien bis 17.11.2026
+    tragen noch die anfrageabhängige id)."""
+    i = str(b.get("id") or b.get("url"))
+    if i.startswith("serp-"):
+        doc = serp_doc_id(b)
+        if doc:
+            return "serp-" + hashlib.sha1(doc.encode("utf-8")).hexdigest()[:16]
+    return i
+
+
 def scan_serpapi():
     """Google for Jobs über SerpApi (Free-Plan: 250 Suchen/Monat). Pro Tag höchstens `per_day` Suchen,
     höchstens einmal am Tag (Pushes lösen den Workflow mehrfach aus), Abfragen rotieren über die Tage."""
@@ -2138,7 +2170,7 @@ def scan_serpapi():
             if not isinstance(j, dict):
                 continue
             title = (j.get("title") or "").strip()
-            jid = j.get("job_id") or f"{title}|{j.get('company_name')}"
+            jid = serp_doc_id(j) or j.get("job_id") or f"{title}|{j.get('company_name')}"
             key_id = "serp-" + hashlib.sha1(str(jid).encode("utf-8")).hexdigest()[:16]
             if key_id in out:
                 if tag not in out[key_id]["found_by"]:
@@ -2425,16 +2457,21 @@ def main():
     cutoff = (NOW - dt.timedelta(days=45)).date().isoformat()
     prev = load_json("today.json", {})
     wkey = lambda cid, j: f"{cid}|{j.get('id') or j.get('refnr')}"  # noqa: E731
-    bkey = lambda b: str(b.get("id") or b.get("url"))  # noqa: E731
     parts = {"watch": ([(wkey(c, j), j) for c, v in watch.items() for j in v.get("jobs") or []],
                        {wkey(c, j) for c, v in (prev.get("watch") or {}).items() for j in v.get("jobs") or []}),
-             "boards": ([(bkey(b), b) for b in boards], {bkey(b) for b in prev.get("boards") or []})}
+             "boards": ([(board_key(b), b) for b in boards], {board_key(b) for b in prev.get("boards") or []})}
     pend = seen.get("pending") or {}
     again = {}
     for name, (items, pkeys) in parts.items():
         smap = seen.get(name)
         if smap is None:  # kein seen.json (data-Branch neu): was in der vorigen Datei stand, gilt als damals gesehen
             smap = {k: prev.get("generated") or stamp for k in pkeys}
+        if name == "boards":
+            # Stellen der vorigen Datei, deren Schlüssel sich geändert hat (Google Jobs bis 17.11.2026): first_seen
+            # übernehmen, sonst gälten sie einmal als neu; sonst ohne Wirkung (die Schlüssel stehen schon in smap)
+            for b in prev.get("boards") or []:
+                if b.get("first_seen"):
+                    smap.setdefault(board_key(b), b["first_seen"])
         pend[name], again[name] = stamp_first_seen(items, smap, pend.get(name), pkeys, prev.get("generated"), stamp)
         cur = {k for k, _ in items}
         seen[name] = {k: v for k, v in smap.items() if k in cur or v[:10] >= cutoff}
