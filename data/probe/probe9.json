@@ -1,0 +1,96 @@
+[
+ {
+  "url": "https://join.com/companies/egs-plan",
+  "status": 200,
+  "final": "https://join.com/companies/egs-plan",
+  "len": 125259,
+  "server": "cloudflare",
+  "cf": null,
+  "title": "Jobs at EGS-plan Ingenieurgesellschaft für Energie-... | JOIN",
+  "closed_marker": true,
+  "jobs": [
+   [
+    "16911331",
+    "auszubildender-technischer-systemplaner-versorgungs-und-ausruestungstechnik-zum-01-09-2027-m-w-d"
+   ],
+   [
+    "16919828",
+    "ingenieur-als-planer-von-energiezentralen-m-w-d-vollzeit"
+   ],
+   [
+    "16932002",
+    "it-systemadministrator-m-w-d-vollzeit-oder-teilzeit"
+   ],
+   [
+    "16945016",
+    "praktikant-energiekonzeption-m-w-d-vollzeit"
+   ],
+   [
+    "16960530",
+    "fachplaner-elektrotechnik-m-w-d-vollzeit-oder-teilzeit"
+   ]
+  ]
+ },
+ {
+  "url": "https://join.com/companies/egs-plan/16519627-kaufmaennische-projektassistenz-m-w-d-voll-oder-teilzeit",
+  "status": 410,
+  "final": "https://join.com/companies/egs-plan/16582788-kaufmaennische-projektassistenz-m-w-d-voll-oder-teilzeit",
+  "len": 97291,
+  "server": "cloudflare",
+  "cf": null,
+  "title": "EGS-plan Ingenieurgesellschaft für Energie-, Gebäude- und Solartechnik mbH (Stuttgart): Kaufmännische Projektassistenz (m/w/d) Voll- oder Teilzeit",
+  "closed_marker": true
+ },
+ {
+  "url": "https://join.com/companies/egs-plan/16401986-kaufmaennische-projektassistenz-m-w-d-voll-oder-teilzeit",
+  "status": 410,
+  "final": "https://join.com/companies/egs-plan/16582788-kaufmaennische-projektassistenz-m-w-d-voll-oder-teilzeit",
+  "len": 97291,
+  "server": "cloudflare",
+  "cf": null,
+  "title": "EGS-plan Ingenieurgesellschaft für Energie-, Gebäude- und Solartechnik mbH (Stuttgart): Kaufmännische Projektassistenz (m/w/d) Voll- oder Teilzeit",
+  "closed_marker": true
+ },
+ {
+  "url": "https://join.com/companies/junizenergy/16874449-projektleiter-m-w-d-batteriegrossspeicher-bess",
+  "status": 200,
+  "final": "https://join.com/companies/junizenergy/16931278-projektleiter-m-w-d-batteriegrossspeicher-bess",
+  "len": 155614,
+  "server": "cloudflare",
+  "cf": null,
+  "title": "ju:niz Energy (München): Projektleiter (m/w/d) – Batteriegroßspeicher (BESS)",
+  "closed_marker": true
+ },
+ {
+  "url": "https://join.com/companies/junizenergy/16152446-lead-electrical-engineer-batteriegrossspeicher-bess-m-w-d",
+  "status": 410,
+  "final": "https://join.com/companies/junizenergy/16460139-lead-electrical-engineer-batteriegrossspeicher-bess-m-w-d",
+  "len": 96284,
+  "server": "cloudflare",
+  "cf": null,
+  "title": "ju:niz Energy (Remote): Lead Electrical Engineer – Batteriegroßspeicher (BESS) (m/w/d)",
+  "closed_marker": true
+ },
+ {
+  "url": "https://wemag.softgarden.io/job/51621143/Koordinator-Netzanschl%C3%BCsse-EE-Anlagen-m-w-d?l=de",
+  "status": 404,
+  "final": "https://wemag.softgarden.io/job/51621143/Koordinator-Netzanschl%C3%BCsse-EE-Anlagen-m-w-d?l=de",
+  "len": 11143,
+  "server": "cloudflare",
+  "cf": null,
+  "title": "Karriere Board | WEMAG AG",
+  "closed_marker": false,
+  "netz": []
+ },
+ {
+  "url": "https://wemag.softgarden.io/de/vacancies",
+  "status": 200,
+  "final": "https://wemag.softgarden.io/de/vacancies",
+  "len": 38907,
+  "server": "cloudflare",
+  "cf": null,
+  "title": "Karriere Board | WEMAG AG",
+  "closed_marker": false,
+  "netz": []
+ }
+]
