@@ -1,0 +1,419 @@
+{
+ "alerts": [
+  "Workday не отдал списки (защита Cloudflare от ботов): GOLDBECK (Gruppe), BayWa r.e., Canadian Solar e-STORAGE, Canadian Solar, Zeppelin Power Systems, Energiedienst, Copenhagen Infrastructure Partners (Hamburg), GETEC, Pramac — их вакансии сегодня только из Jobbörse и досок"
+ ],
+ "counts": {
+  "boards": 211,
+  "candidates": 78,
+  "other": 190,
+  "watch": 1025
+ },
+ "date": "2026-11-21",
+ "errors": [
+  "workday GOLDBECK (Gruppe): Liste nicht geladen (blocked)",
+  "workday BayWa r.e.: Liste nicht geladen (blocked)",
+  "workday Canadian Solar e-STORAGE: Liste nicht geladen (blocked)",
+  "workday Canadian Solar: Liste nicht geladen (blocked)",
+  "workday Zeppelin Power Systems: Liste nicht geladen (blocked)",
+  "workday Energiedienst: Liste nicht geladen (blocked)",
+  "workday Copenhagen Infrastructure Partners (Hamburg): Liste nicht geladen (blocked)",
+  "workday GETEC: Liste nicht geladen (blocked)",
+  "workday Pramac: Liste nicht geladen (blocked)"
+ ],
+ "generated": "2026-11-21T08:57:50Z",
+ "minutes": 9.4,
+ "stats": {
+  "atom_eejobs": {
+   "entries": 26,
+   "kept": 3
+  },
+  "atom_greenjobs": {
+   "entries": 121,
+   "kept": 3
+  },
+  "blind_count": 41,
+  "dropped": {
+   "disputed": 256,
+   "soft": 0,
+   "total": 2789
+  },
+  "feeds": {
+   "companies": 162,
+   "failed": [
+    "baywa-re",
+    "canadian-solar-e-storage",
+    "cip",
+    "energiedienst",
+    "getec",
+    "goldbeck-gruppe",
+    "pramac",
+    "zeppelin-power-systems"
+   ],
+   "jobs": {
+    "ashby": 14,
+    "dvinci": 22,
+    "greenhouse": 2,
+    "join": 125,
+    "jsonlist": 9,
+    "page": 198,
+    "personio": 382,
+    "recruitee": 21,
+    "rss": 11,
+    "sitemap": 15,
+    "smartrecruiters": 20,
+    "workable": 0,
+    "workday": 1
+   }
+  },
+  "first_seen_again": {
+   "boards": 0,
+   "watch": 0
+  },
+  "indeed": {
+   "abroad_dropped": 0,
+   "collapsed": 5,
+   "failed": 0,
+   "kept": 77,
+   "no_pv_bess_dropped": 4,
+   "raw": 332,
+   "searches": 36,
+   "title_dropped": 246
+  },
+  "jobboerse_demoted_no_industry": 69,
+  "jobboerse_details_fetched": 34,
+  "jobboerse_per_query": {
+   "DE: Agri-PV": 1,
+   "DE: BESS": 4,
+   "DE: Batteriegroßspeicher": 0,
+   "DE: Batteriespeicher": 22,
+   "DE: Battery Storage": 2,
+   "DE: Einspeisung": 0,
+   "DE: Energiedienstleistungen": 10,
+   "DE: Energiemanagement": 87,
+   "DE: Energiespeicher": 4,
+   "DE: Energiewende": 252,
+   "DE: Energy Storage": 13,
+   "DE: Erneuerbare Energien": 181,
+   "DE: Freiflächenanlagen": 3,
+   "DE: Großbatteriespeicher": 2,
+   "DE: Mieterstrom": 1,
+   "DE: Netzanschluss": 13,
+   "DE: PV": 125,
+   "DE: Photovoltaik": 149,
+   "DE: Renewable Energy": 8,
+   "DE: Solar": 107,
+   "DE: Solaranlagen": 27,
+   "DE: Solarenergie": 2,
+   "DE: Solarpark": 0,
+   "DE: Stromspeicher": 22,
+   "рядом: Agri-PV": 0,
+   "рядом: BESS": 0,
+   "рядом: Batteriegroßspeicher": 0,
+   "рядом: Batteriespeicher": 1,
+   "рядом: Battery Storage": 0,
+   "рядом: Einspeisung": 0,
+   "рядом: Energiedienstleistungen": 0,
+   "рядом: Energiemanagement": 5,
+   "рядом: Energiespeicher": 1,
+   "рядом: Energiewende": 16,
+   "рядом: Energy Storage": 0,
+   "рядом: Erneuerbare Energien": 6,
+   "рядом: Freiflächenanlagen": 1,
+   "рядом: Großbatteriespeicher": 0,
+   "рядом: Mieterstrom": 0,
+   "рядом: Netzanschluss": 1,
+   "рядом: PV": 9,
+   "рядом: Photovoltaik": 17,
+   "рядом: Renewable Energy": 0,
+   "рядом: Solar": 8,
+   "рядом: Solaranlagen": 2,
+   "рядом: Solarenergie": 0,
+   "рядом: Solarpark": 0,
+   "рядом: Stromspeicher": 2,
+   "удалённо: Agri-PV": 0,
+   "удалённо: BESS": 0,
+   "удалённо: Batteriegroßspeicher": 0,
+   "удалённо: Batteriespeicher": 0,
+   "удалённо: Battery Storage": 0,
+   "удалённо: Einspeisung": 0,
+   "удалённо: Energiedienstleistungen": 0,
+   "удалённо: Energiemanagement": 8,
+   "удалённо: Energiespeicher": 0,
+   "удалённо: Energiewende": 17,
+   "удалённо: Energy Storage": 0,
+   "удалённо: Erneuerbare Energien": 11,
+   "удалённо: Freiflächenanlagen": 0,
+   "удалённо: Großbatteriespeicher": 1,
+   "удалённо: Mieterstrom": 0,
+   "удалённо: Netzanschluss": 0,
+   "удалённо: PV": 5,
+   "удалённо: Photovoltaik": 3,
+   "удалённо: Renewable Energy": 0,
+   "удалённо: Solar": 0,
+   "удалённо: Solaranlagen": 0,
+   "удалённо: Solarenergie": 0,
+   "удалённо: Solarpark": 0,
+   "удалённо: Stromspeicher": 0
+  },
+  "jobboerse_tiers": {
+   "drop": 537,
+   "other": 124,
+   "prefer": 149
+  },
+  "jobboerse_unique": 810,
+  "jobspy": {
+   "abroad_dropped": {},
+   "kept": {
+    "LinkedIn": 33
+   },
+   "texts": {
+    "cached": 1,
+    "no_pv_bess_dropped": 21,
+    "read": 38,
+    "unreadable": 15
+   }
+  },
+  "minutes_by_source": {
+   "atom_xing": 9.4,
+   "feeds": 3.8,
+   "jobboerse": 4.6,
+   "jobspy": 6.0,
+   "serpapi": 5.2
+  },
+  "page_counts": {
+   "bessr": 3,
+   "blue-elephant-energy": 14,
+   "climagy": 4,
+   "dew21": 10,
+   "e3dc": 11,
+   "energieagentur-rems-murr": 2,
+   "energiekontor": 3,
+   "energiewerk": 8,
+   "evf-filstal": 4,
+   "franz-scheuerle-ulm": 2,
+   "greentech": 6,
+   "jurchen-technology": 1,
+   "kea-bw": 3,
+   "kreiswerke-barnim": 7,
+   "mein-solar": 2,
+   "notus-energy": 0,
+   "oeko-haus": 9,
+   "pfalzsolar": 0,
+   "pfalzwerke": 38,
+   "pne": 3,
+   "powerwerker": 6,
+   "prokon": 8,
+   "qcells": 40,
+   "res-deutschland": 3,
+   "sbp-sonne": 6,
+   "stadtwerke-tuebingen": 3,
+   "thuega-erneuerbare-energien": 8,
+   "uka": 72,
+   "wpd": 10
+  },
+  "pages_went_empty": [],
+  "sample_detail_keys": [
+   "aenderungsdatum",
+   "allianzpartnerName",
+   "allianzpartnerUrl",
+   "arbeitgeberKundennummerHash",
+   "arbeitszeitSchichtNachtWochenende",
+   "arbeitszeitTeilzeitAbend",
+   "arbeitszeitTeilzeitFlexibel",
+   "arbeitszeitTeilzeitNachmittag",
+   "arbeitszeitTeilzeitVormittag",
+   "arbeitszeitVollzeit",
+   "chiffrenummer",
+   "datumErsteVeroeffentlichung",
+   "eintrittszeitraum",
+   "firma",
+   "hauptberuf",
+   "homeofficemoeglich",
+   "istArbeitnehmerUeberlassung",
+   "istBehinderungGefordert",
+   "istBetreut",
+   "istGeringfuegigeBeschaeftigung",
+   "istPrivateArbeitsvermittlung",
+   "quereinstiegGeeignet",
+   "referenznummer",
+   "stellenangebotsBeschreibung",
+   "stellenangebotsTitel",
+   "stellenangebotsart",
+   "stellenlokationen",
+   "verguetungsangabe",
+   "veroeffentlichungszeitraum",
+   "vertragsdauer"
+  ],
+  "sample_item_keys": [
+   "aenderungsdatum",
+   "alleBerufe",
+   "alternativBeruf1",
+   "alternativBeruf2",
+   "arbeitgeberKundennummerHash",
+   "arbeitszeitSchichtNachtWochenende",
+   "arbeitszeitTeilzeitAbend",
+   "arbeitszeitTeilzeitFlexibel",
+   "arbeitszeitTeilzeitNachmittag",
+   "arbeitszeitTeilzeitVormittag",
+   "arbeitszeitVollzeit",
+   "datumErsteVeroeffentlichung",
+   "eintrittszeitraum",
+   "entfernung",
+   "firma",
+   "hauptberuf",
+   "quereinstiegGeeignet",
+   "referenznummer",
+   "stellenangebotsTitel",
+   "stellenangebotsart",
+   "stellenlokationen",
+   "verguetungsangabe",
+   "veroeffentlichungszeitraum",
+   "vertragsdauer"
+  ],
+  "serpapi": {
+   "boost": 2,
+   "configured": true,
+   "filters_seen": [
+    {
+     "name": "Letzte 3 Tage",
+     "options": [
+      "Gestern",
+      "Letzte 3 Tage",
+      "Letzte Woche",
+      "Letzter Monat"
+     ]
+    },
+    {
+     "name": "Letzte 3 Tage",
+     "options": [
+      "Gestern",
+      "Letzte 3 Tage",
+      "Letzte Woche",
+      "Letzter Monat"
+     ]
+    },
+    {
+     "name": "Homeoffice",
+     "options": []
+    },
+    {
+     "name": "Jobtyp",
+     "options": [
+      "Vollzeit",
+      "Teilzeit",
+      "Vertrag",
+      "Praktikum"
+     ]
+    },
+    {
+     "name": "Jobtyp",
+     "options": [
+      "Vollzeit",
+      "Teilzeit",
+      "Vertrag",
+      "Praktikum"
+     ]
+    }
+   ],
+   "left": 501,
+   "plan": "Free Plan",
+   "queries": [
+    "Project Manager Battery Storage",
+    "kaufmännischer Projektmanager Energie",
+    "Koordinator Netzanschluss",
+    "Vertragsmanager Energie",
+    "Commercial Asset Manager Photovoltaik",
+    "Projektkaufmann Energie",
+    "Netzanmeldung Photovoltaik",
+    "Auftragsmanagement Erneuerbare Energien",
+    "Project Support Erneuerbare Energien",
+    "Procurement Manager Battery Storage",
+    "Stuttgart: Projektmanager Erneuerbare Energien",
+    "Stuttgart: Auftragsabwicklung Photovoltaik",
+    "Stuttgart: Einkäufer Photovoltaik",
+    "Stuttgart: Projektassistenz Erneuerbare Energien",
+    "Stuttgart: Projektmanager Energie",
+    "Stuttgart: Koordinator Netzanschluss"
+   ],
+   "response_keys": [
+    "filters",
+    "jobs_results",
+    "serpapi_pagination"
+   ],
+   "results": 45,
+   "uds": true,
+   "used_today": 16
+  },
+  "stale": {
+   "dup_dropped": 0,
+   "flagged": 14
+  },
+  "title_soft": {
+   "feed": 10,
+   "no_pv_dropped": 17,
+   "text": 8,
+   "title": 9
+  },
+  "watch_failed": [
+   "canadian-solar-e-storage",
+   "cip",
+   "goldbeck-gruppe",
+   "pramac"
+  ],
+  "workday": {
+   "429": 0,
+   "blocked": 4,
+   "deferred": [
+    "baywa-re",
+    "canadian-solar-e-storage",
+    "cip",
+    "energiedienst",
+    "getec",
+    "goldbeck-gruppe",
+    "pramac",
+    "zeppelin-power-systems"
+   ],
+   "details_cached": 0,
+   "details_failed": 0,
+   "details_read": 0,
+   "failed": [
+    "GOLDBECK (Gruppe)",
+    "BayWa r.e.",
+    "Canadian Solar e-STORAGE",
+    "Canadian Solar",
+    "Zeppelin Power Systems",
+    "Energiedienst",
+    "Copenhagen Infrastructure Partners (Hamburg)",
+    "GETEC",
+    "Pramac"
+   ],
+   "failed_ids": [
+    "goldbeck-gruppe",
+    "baywa-re",
+    "canadian-solar-e-storage",
+    "canadian-solar-e-storage",
+    "zeppelin-power-systems",
+    "energiedienst",
+    "cip",
+    "getec",
+    "pramac"
+   ],
+   "requests": 5,
+   "waited_s": 0
+  },
+  "xing": {
+   "abroad_dropped": 7,
+   "cards": 875,
+   "details_cached": 92,
+   "details_failed": 0,
+   "details_read": 81,
+   "kept": 51,
+   "no_pv_bess_dropped": 60,
+   "old_dropped": 55,
+   "search_failed": 0,
+   "searches": 83,
+   "title_dropped": 149,
+   "unique": 322
+  }
+ }
+}
