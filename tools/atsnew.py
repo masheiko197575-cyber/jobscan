@@ -6,12 +6,31 @@ import json,re,sys,os,glob,datetime as DT
 #                               -> /tmp/scan/ats_new.jsonl; все ссылки поиска -> /tmp/scan/ats_urls.json (для meta/atsSeen)
 sys.path.insert(0,'/tmp/scan')
 import dedupe as D
-import mailmatch as M
 W='/tmp/scan'
+# load и make_tier — те же, что в mailmatch.py (скрипт самостоятельный: mailmatch.py подбор больше не скачивает)
+def load(p,default):
+  try:return json.load(open(p,encoding='utf-8'))
+  except Exception:return default
+def make_tier(f):
+  rx=lambda k:re.compile(f[k],re.I) if f.get(k) else None
+  EX,PR,AD,CO,SO,OP=rx('title_exclude'),rx('title_prefer'),rx('title_adjacent'),rx('title_core'),rx('title_soft'),rx('title_senior_optional')
+  def tier(t):
+    t=t or ''
+    hits=[m.group(0) for m in EX.finditer(t)] if EX else []
+    soft=False
+    if hits:
+      # «Senior» рядом с «Junior» или только как возможность («(Senior) Projektmanager», правило сканера title_senior_optional)
+      jr=bool(re.search(r'junior',t,re.I)) or bool(OP and OP.search(t) and not re.search(r'\bsenior|\bsr\.',OP.sub(' ',t),re.I))
+      soft=bool(PR and PR.search(t)) and all((SO and SO.fullmatch(h)) or (jr and re.match(r'senior|sr\.',h,re.I)) for h in hits)
+      if not soft:return 'drop'
+    if AD and AD.search(t) and not (CO and CO.search(t)):return 'drop'
+    if soft:return 'soft'
+    return 'prefer' if PR and PR.search(t) else 'other'
+  return tier
 def doc(name,field):
   """Документ meta/<name> из файлов, куда его положил ArtifactData (out_dir): сам документ или обёртка с data."""
   for p in [f'{W}/meta/{name}.json',f'{W}/db/meta/{name}.json']+sorted(glob.glob(f'{W}/**/{name}.json',recursive=True)):
-    d=M.load(p,None)
+    d=load(p,None)
     if isinstance(d,dict):
       if field in d:return d
       if isinstance(d.get('data'),dict) and field in d['data']:return d['data']
@@ -27,7 +46,7 @@ def queries():
   n=today().toordinal()%3
   print(json.dumps({'total':len(qs),'part':n,'queries':[q for i,q in enumerate(qs) if i%3==n]},ensure_ascii=False))
 def run():
-  t=M.load(f'{W}/today.json',{});tier=M.make_tier(t.get('filters') or {})
+  t=load(f'{W}/today.json',{});tier=make_tier(t.get('filters') or {})
   seen=set()
   for u in doc('atsSeen','urls').get('urls') or []:
     if isinstance(u,str):seen.add(u.strip());seen.add(D.norm_url(u))
