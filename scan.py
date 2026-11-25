@@ -27,6 +27,7 @@ import os
 import random
 import re
 import sys
+import threading
 import time
 import xml.etree.ElementTree as ET
 
@@ -59,6 +60,7 @@ INDUSTRY_STRICT = re.compile(CFG.get("industry_strict_regex") or CFG["industry_r
 ADJACENT = re.compile(CFG["title_adjacent"], re.I) if CFG.get("title_adjacent") else None
 CORE = re.compile(CFG["title_core"], re.I) if CFG.get("title_core") else None
 SOFT = re.compile(CFG["title_soft"], re.I) if CFG.get("title_soft") else None
+SENIOR_OPT = re.compile(CFG["title_senior_optional"], re.I) if CFG.get("title_senior_optional") else None
 # Beleg im Stellentext für Titel mit «weichem» Ausschlusswort: eindeutige PV-/Speicherwörter (ohne «Netzanschluss», «Speicher»,
 # «Erneuerbare» — die stehen auch in Gas-, Wasser- und Stadtwerke-Texten)
 PROOF = re.compile(CFG.get("title_soft_proof") or CFG.get("pv_only_regex") or CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
@@ -198,12 +200,22 @@ def cut(s, n=MAX_DESC):
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
+def senior_optional(t):
+    """«Senior» steht im Titel nur als Möglichkeit (config title_senior_optional): «(Senior) Projektmanager»,
+    «Projektmanager (Junior/Senior)», «Projektleiter / Senior Projektleiter» — die Stelle ist auch ohne «Senior»
+    ausgeschrieben. Ein weiteres, nicht eingeklammertes «Senior» im selben Titel zählt weiter als Ausschluss."""
+    if not SENIOR_OPT or not SENIOR_OPT.search(t):
+        return False
+    return not re.search(r"\bsenior|\bsr\.", SENIOR_OPT.sub(" ", t), re.I)
+
+
 def soft_only(t, hits):
-    """Alle Ausschlusstreffer des Titels sind «weich» (config title_soft; «Senior» neben «Junior») und der Titel nennt
-    eine Rolle — z. B. «Montage-Disponent Photovoltaik», «Kundenservice & Backoffice – Photovoltaik»."""
+    """Alle Ausschlusstreffer des Titels sind «weich» (config title_soft; «Senior» neben «Junior» oder nur als Möglichkeit,
+    siehe senior_optional) und der Titel nennt eine Rolle — z. B. «Montage-Disponent Photovoltaik»,
+    «Kundenservice & Backoffice – Photovoltaik», «(Senior) Projektmanager Photovoltaik»."""
     if not hits or not PREF.search(t):
         return False
-    junior = bool(re.search(r"junior", t, re.I))
+    junior = bool(re.search(r"junior", t, re.I)) or senior_optional(t)
     return all(bool(SOFT and SOFT.fullmatch(h)) or bool(junior and re.match(r"senior|sr\.", h, re.I)) for h in hits)
 
 
@@ -1475,6 +1487,13 @@ def _title_key(t):
 
 
 def scan_feeds(details_cache):
+    try:
+        return _scan_feeds(details_cache)
+    finally:
+        FEEDS_DONE.set()  # scan_fallback wartet darauf
+
+
+def _scan_feeds(details_cache):
     out = {}
     # JOIN zuerst: bei Firmen mit zwei Systemen (ju:niz: JOIN und Personio) bleiben die JOIN-ids (wie seen in der
     # Tabelle); vom zweiten System kommen nur Stellen mit neuem Titel dazu.
@@ -1617,20 +1636,111 @@ LI_HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 
               "Accept-Language": "de-DE,de;q=0.9,en;q=0.8"}
 
 
+LI = {"why": {}, "t_fail": 0.0}  # Gründe abgewiesener LinkedIn-Seiten (stats) und Zeitpunkt der letzten Abweisung
+
+
 def li_job_text(job_id):
     """Text der öffentlichen LinkedIn-Stellenseite (ohne Login); None, wenn nicht lesbar (Login-Seite, 429 …)."""
+    why = None
     try:
         r = requests.get(f"https://www.linkedin.com/jobs/view/{job_id}", headers=LI_HEADERS, timeout=30)
-    except Exception:  # noqa: BLE001
-        return None
-    if r.status_code != 200 or "/jobs/view/" not in r.url:
-        return None
-    m = re.search(r'<div class="show-more-less-html__markup[^"]*"[^>]*>(.*?)</div>', r.text, re.S)
-    text = strip_html(m.group(1)) if m else ""
-    return text or None
+        if r.status_code != 200:
+            why = f"HTTP {r.status_code}"
+        elif "/jobs/view/" not in r.url:
+            why = "Anmeldeseite"
+    except Exception as ex:  # noqa: BLE001
+        why = type(ex).__name__
+    if why is None:
+        m = re.search(r'<div class="show-more-less-html__markup[^"]*"[^>]*>(.*?)</div>', r.text, re.S)
+        text = strip_html(m.group(1)) if m else ""
+        if text:
+            return text
+        why = "kein Text auf der Seite"
+    LI["why"][why] = LI["why"].get(why, 0) + 1
+    LI["t_fail"] = time.time()
+    return None
+
+
+def li_id(url):
+    m = re.search(r"/jobs/view/(?:[^/?#]*-)?(\d+)", url or "")
+    return m.group(1) if m else None
+
+
+def li_det():
+    return {"read": 0, "cached": 0, "tries_failed": 0, "unreadable": 0, "no_pv_bess_dropped": 0, "retry_rounds": 0, "retry_read": 0}
+
+
+def li_fill_texts(recs, details_cache, det, pace=(1.5, 3.5)):
+    """LinkedIn gibt in der Suche keinen Text: Stellenseite lesen und Stellen ohne PV/BESS im Text mit _drop
+    markieren (wie bei der Jobbörse; nicht bei Stellen mit _keep — Ersatz für die Liste einer beobachteten Firma). Gelesene Texte bleiben 7 Tage im details-Cache (Schlüssel "li:<id>"), damit ein
+    zweiter Lauf am selben Tag (Push, Nachstart) LinkedIn nicht erneut abfragt. Titel mit Rollenwort (prefer) zuerst.
+    LinkedIn weist einen Teil der Seiten mit 429 ab (25.11.2026: 12 von 33, nach zwei Minuten Pause alle lesbar): eine
+    abgewiesene Seite bleibt offen, nach vier Abweisungen in Folge endet die Runde. Rückgabe: Stellen, deren Text noch
+    fehlt — li_retry versucht sie später noch einmal."""
+    todo = [r for r in recs if r.get("source") == "LinkedIn" and not r.get("description") and not r.get("_drop")]
+    todo.sort(key=lambda r: r.get("title_tier") != "prefer")
+    li_max = int((CFG.get("jobspy") or {}).get("linkedin_details_max", 150))
+    pending, in_row = [], 0
+    for rec in todo:
+        jid = li_id(rec.get("url"))
+        ck = f"li:{jid}" if jid else None
+        hit = details_cache.get(ck) if (details_cache is not None and ck) else None
+        if hit is not None:
+            det["cached"] += 1
+            text = hit.get("text") or ""
+        else:
+            if not jid:
+                continue
+            if det["read"] + det["tries_failed"] >= li_max or in_row >= 4:
+                pending.append(rec)
+                continue
+            text = li_job_text(jid)
+            if text is None:
+                det["tries_failed"] += 1
+                in_row += 1
+                pending.append(rec)
+                time.sleep(6)
+                continue
+            in_row = 0
+            det["read"] += 1
+            time.sleep(random.uniform(*pace))
+        relevant = bool(INDUSTRY_STRICT.search(f"{rec['title']} {rec['company']} {text}"))
+        if hit is None and ck and details_cache is not None:
+            details_cache[ck] = {"text": cut(text) if (relevant or rec.get("_keep")) else "", "cached_at": TODAY}
+        if not relevant and not rec.get("_keep"):
+            det["no_pv_bess_dropped"] += 1
+            rec["_drop"] = True
+        elif text:
+            rec["description"] = cut(text)
+    return pending
+
+
+def li_retry(pending, details_cache, det):
+    """Spätere Leserunden für abgewiesene LinkedIn-Seiten: warten (pause_s seit der letzten Abweisung), dann langsamer
+    noch einmal lesen — höchstens rounds Runden und max_s Sekunden (config jobspy.linkedin_retry); nicht mehr, wenn der
+    ganze Lauf schon länger als 25 Minuten dauert. Rückgabe: Stellen, die auch danach ohne Text bleiben."""
+    cfg = (CFG.get("jobspy") or {}).get("linkedin_retry") or {}
+    rounds, pause, max_s = int(cfg.get("rounds", 3)), float(cfg.get("pause_s", 90)), float(cfg.get("max_s", 480))
+    t0 = time.time()
+    for _ in range(rounds):
+        pending = [r for r in pending if not r.get("description") and not r.get("_drop")]
+        wait = max(0.0, pause - (time.time() - LI["t_fail"]))
+        if not pending or time.time() - t0 + wait > max_s or time.time() - START > 25 * 60:
+            break
+        time.sleep(wait)
+        det["retry_rounds"] += 1
+        before = det["read"]
+        pending = li_fill_texts(pending, details_cache, det, pace=(3.0, 5.0))
+        det["retry_read"] += det["read"] - before
+    return [r for r in pending if not r.get("description") and not r.get("_drop")]
 
 
 def scan_jobspy(details_cache=None):
+    """LinkedIn über JobSpy (öffentliche Gastsuche): enge Begriffe (Rolle + Branche) bundesweit, dazu seit 25.11.2026 ein
+    regionaler Durchgang mit breiten Branchenwörtern (config jobspy.regional: Stuttgart + Umkreis) — für Stellen bei
+    Arbeitgebern in der Nähe, die kein Branchenwort im Titel tragen. Im regionalen Durchgang bleiben nur Titel mit
+    Rollenwort (prefer) oder PV-/Speicherwort im Titel oder Firmennamen: die breite Suche bringt viel Beifang, und jede
+    Stelle kostet eine Textabfrage."""
     cfg = CFG.get("jobspy") or {}
     if not cfg.get("enabled", True):
         return []
@@ -1641,105 +1751,209 @@ def scan_jobspy(details_cache=None):
         return []
     out = {}
     abroad = {}
-    for term in cfg.get("terms", []):
+    reg = cfg.get("regional") or {}
+    plan = [(site, term, None) for term in cfg.get("terms", []) for site in cfg.get("sites", ["indeed", "linkedin"])]
+    plan += [("linkedin", term, reg) for term in reg.get("terms", [])]
+    reg_st = {"searches": 0, "raw": 0, "kept": 0, "beifang": 0}
+    for site, term, r in plan:
+        tag = f"{site} {r.get('label', 'regional')}: {term}" if r else f"{site}: {term}"
+        kw = dict(site_name=[site], search_term=term,
+                  location=(r or {}).get("location") or (cfg.get("locations") or {}).get(site) or cfg.get("location", "Deutschland"),
+                  country_indeed=cfg.get("country_indeed", "germany"), hours_old=int((r or cfg).get("hours_old", 24)),
+                  results_wanted=int((r or cfg).get("results_wanted", 40)), linkedin_fetch_description=False,
+                  description_format="markdown", verbose=0)
+        if r and r.get("distance") is not None:
+            kw["distance"] = int(r["distance"])  # Meilen
+        if r:
+            reg_st["searches"] += 1
+        try:
+            df = scrape_jobs(**kw)
+        except Exception as ex:  # noqa: BLE001
+            err(f"jobspy {tag}: {str(ex)[:120]}")
+            continue
+        if df is None or len(df) == 0:
+            continue
+        src = {"indeed": "Indeed", "linkedin": "LinkedIn"}.get(site, site)
+        for _, row in df.iterrows():
+            url = str(row.get("job_url") or "")
+            if not url or url in out:
+                if url in out and tag not in out[url]["found_by"]:
+                    out[url]["found_by"].append(tag)
+                continue
+            loc = row.get("location")
+            loc = "" if loc is None or isinstance(loc, float) else str(loc)
+            if not in_germany(loc):
+                abroad[site] = abroad.get(site, 0) + 1
+                continue
+            title, company = str(row.get("title") or ""), str(row.get("company") or "")
+            tier = title_tier(title)
+            if r:
+                reg_st["raw"] += 1
+            if tier == "drop":
+                note_drop(title, company, src)
+                continue
+            if r and tier != "prefer" and not (CORE and CORE.search(f"{title} {company}")):
+                reg_st["beifang"] += 1
+                continue
+            desc = row.get("description")
+            desc = "" if desc is None or (isinstance(desc, float)) else str(desc)
+            dp = row.get("date_posted")
+            out[url] = {
+                "id": f"{site}-{re.sub(r'[^0-9a-zA-Z]+', '-', url)[-50:]}",
+                "source": src,
+                "title": title,
+                "company": company,
+                "location": loc,
+                "remote": bool(row.get("is_remote")) if row.get("is_remote") is not None else None,
+                "published": str(dp)[:10] if dp is not None and str(dp) not in ("NaT", "nan", "None") else None,
+                "url": url,
+                "title_tier": tier,
+                "description": cut(strip_html(desc)) if desc else None,
+                "found_by": [tag],
+            }
+            if r:
+                reg_st["kept"] += 1
+        time.sleep(2)
+    recs = list(out.values())
+    det = li_det()
+    for rec in recs:
+        if rec["source"] == "Indeed" and rec.get("description") and not INDUSTRY_STRICT.search(f"{rec['title']} {rec['company']} {rec['description']}"):
+            det["no_pv_bess_dropped"] += 1
+            rec["_drop"] = True
+    # erste Leserunde; was LinkedIn abweist, liest boards_jobspy nach den übrigen Suchen noch einmal (li_retry)
+    LI["pending"] = li_fill_texts(recs, details_cache, det)
+    LI["det"] = det
+    STATS["jobspy"] = {"abroad_dropped": abroad, "regional": reg_st}
+    return recs
+
+
+FALLBACK = {}  # Firmen-id → {"jobs": [...], "via": [...]}: Ersatz für Firmenlisten, die nicht luden (scan_fallback)
+FEEDS_DONE = threading.Event()  # scan_feeds ist fertig (STATS["workday"] steht)
+
+
+def scan_fallback(details_cache):
+    """Ersatz für Workday-Listen, die nicht luden (seit 16.11.2026 weist Cloudflare den GitHub-Server ab — das umgehen
+    wir nicht): die Firma nach ihrem Namen auf Indeed und LinkedIn suchen (öffentliche Suche, letzte hours_old Stunden)
+    und nur Treffer behalten, deren Firmenname passt. Das ist nicht die vollständige Liste der Firma, sondern was sie in
+    den letzten Tagen dort ausgeschrieben hat — für neue Stellen reicht das. Suchname und Namensmuster: config workday[].fallback
+    {query, match (Regex)}, sonst wie in employers (query, match). Ergebnis in FALLBACK; main() hängt die Stellen an die
+    Firma in watch (Kennzeichen via)."""
+    cfg = CFG.get("fallback") or {}
+    if not cfg.get("enabled", True):
+        return []
+    FEEDS_DONE.wait(timeout=600)
+    failed = list(dict.fromkeys((STATS.get("workday") or {}).get("failed_ids") or []))
+    if not failed:
+        return []
+    try:
+        from jobspy import scrape_jobs  # type: ignore
+    except Exception as ex:  # noqa: BLE001
+        err(f"jobspy nicht verfügbar: {ex}")
+        return []
+    by_name = {e["id"]: e for e in CFG.get("employers", [])}
+    st = {}
+    li_recs = []
+    for cid in failed:
+        ents = [e for e in CFG.get("workday", []) if e["id"] == cid]
+        fbc = next((e["fallback"] for e in ents if e.get("fallback")), None) or {}
+        emp = by_name.get(cid) or {}
+        query = fbc.get("query") or emp.get("query")
+        if not query:
+            continue
+        rx = re.compile(fbc.get("match") or re.escape((emp.get("match") or query).lower()), re.I)
+        name = ents[0]["name"] if ents else cid
+        pv_only = any(e.get("pv_only") for e in ents)
+        jobs, c, ok = {}, {"indeed": 0, "linkedin": 0, "kept": 0}, False
         for site in cfg.get("sites", ["indeed", "linkedin"]):
-            try:
-                df = scrape_jobs(
-                    site_name=[site],
-                    search_term=term,
-                    location=(cfg.get("locations") or {}).get(site) or cfg.get("location", "Deutschland"),
-                    country_indeed=cfg.get("country_indeed", "germany"),
-                    hours_old=int(cfg.get("hours_old", 24)),
-                    results_wanted=int(cfg.get("results_wanted", 40)),
-                    linkedin_fetch_description=False,
-                    description_format="markdown",
-                    verbose=0,
-                )
-            except Exception as ex:  # noqa: BLE001
-                err(f"jobspy {site} «{term}»: {str(ex)[:120]}")
-                continue
-            if df is None or len(df) == 0:
-                continue
-            for _, row in df.iterrows():
-                url = str(row.get("job_url") or "")
-                if not url or url in out:
-                    if url in out and f"{site}: {term}" not in out[url]["found_by"]:
-                        out[url]["found_by"].append(f"{site}: {term}")
-                    continue
+            df = None
+            for attempt in (1, 2):  # LinkedIn antwortet auf eine Suche manchmal leer: einmal wiederholen
+                try:
+                    df = scrape_jobs(site_name=[site], search_term=query, location="Germany" if site == "linkedin" else "Deutschland",
+                                     country_indeed="germany", hours_old=int(cfg.get("hours_old", 168)),
+                                     results_wanted=int(cfg.get("results_wanted", 30)), linkedin_fetch_description=False,
+                                     description_format="markdown", verbose=0)
+                    ok = True
+                except Exception as ex:  # noqa: BLE001
+                    df = None
+                    if attempt == 2:
+                        err(f"Ersatzsuche {site} «{query}»: {str(ex)[:120]}")
+                if (df is not None and len(df)) or site != "linkedin" or attempt == 2:
+                    break
+                time.sleep(15)
+            for _, row in (df.iterrows() if df is not None and len(df) else []):
+                url, company = str(row.get("job_url") or ""), str(row.get("company") or "")
                 loc = row.get("location")
                 loc = "" if loc is None or isinstance(loc, float) else str(loc)
-                if not in_germany(loc):
-                    abroad[site] = abroad.get(site, 0) + 1
+                if not url or url in jobs or not rx.search(company) or not in_germany(loc):
                     continue
+                c[site] += 1
                 title = str(row.get("title") or "")
-                tier = title_tier(title)
-                if tier == "drop":
-                    note_drop(title, str(row.get("company") or ""), {"indeed": "Indeed", "linkedin": "LinkedIn"}.get(site, site))
-                    continue
                 desc = row.get("description")
-                desc = "" if desc is None or (isinstance(desc, float)) else str(desc)
+                desc = "" if desc is None or isinstance(desc, float) else strip_html(str(desc))
                 dp = row.get("date_posted")
-                out[url] = {
-                    "id": f"{site}-{re.sub(r'[^0-9a-zA-Z]+', '-', url)[-50:]}",
-                    "source": {"indeed": "Indeed", "linkedin": "LinkedIn"}.get(site, site),
-                    "title": title,
-                    "company": str(row.get("company") or ""),
-                    "location": loc,
-                    "remote": bool(row.get("is_remote")) if row.get("is_remote") is not None else None,
-                    "published": str(dp)[:10] if dp is not None and str(dp) not in ("NaT", "nan", "None") else None,
-                    "url": url,
-                    "title_tier": tier,
-                    "description": cut(strip_html(desc)) if desc else None,
-                    "found_by": [f"{site}: {term}"],
-                }
+                jid = li_id(url) if site == "linkedin" else ((re.search(r"jk=([0-9a-f]+)", url) or [None, None])[1])
+                jobs[url] = {"id": f"{'li' if site == 'linkedin' else 'indeed'}-{jid or hashlib.sha1(url.encode('utf-8')).hexdigest()[:12]}",
+                             "source": "LinkedIn" if site == "linkedin" else "Indeed", "company": company, "title": title, "location": loc,
+                             "published": str(dp)[:10] if dp is not None and str(dp) not in ("NaT", "nan", "None") else None,
+                             "url": url, "title_tier": title_tier(title), "via": site,
+                             "found_by": [f"Компании под наблюдением: {name} (поиск по имени: {'LinkedIn' if site == 'linkedin' else 'Indeed'})"]}
+                if desc:
+                    jobs[url]["_text"] = desc
             time.sleep(2)
-    # LinkedIn gibt in der Suche keinen Text: Stellenseite lesen und Stellen ohne PV/BESS im Text verwerfen
-    # (wie bei der Jobbörse). Seite nicht lesbar → Stelle bleibt ohne Text, wie bisher.
-    # Gelesene Texte bleiben 7 Tage im details-Cache (Schlüssel "li:<id>"), damit ein zweiter Lauf am selben Tag
-    # (Push, Nachstart) LinkedIn nicht erneut abfragt.
-    det = {"read": 0, "cached": 0, "unreadable": 0, "no_pv_bess_dropped": 0}
-    li_max = int(cfg.get("linkedin_details_max", 150))
-    in_row = 0
-    for url, rec in list(out.items()):
-        if rec["source"] == "Indeed" and rec.get("description"):
-            if not INDUSTRY_STRICT.search(f"{rec['title']} {rec['company']} {rec['description']}"):
-                det["no_pv_bess_dropped"] += 1
-                del out[url]
+        # dieselbe Stelle auf beiden Seiten: einmal (Indeed zuerst — dort kommt der Text mit)
+        uniq, have = [], set()
+        for j in jobs.values():
+            k = _title_key(j["title"])
+            if k not in have:
+                have.add(k)
+                uniq.append(j)
+        FALLBACK[cid] = {"jobs": uniq, "ok": ok, "pv_only": pv_only, "via": [s for s in ("indeed", "linkedin") if c[s]]}
+        st[cid] = c
+        li_recs += [j for j in uniq if j["source"] == "LinkedIn" and j["title_tier"] == "prefer"]
+    # LinkedIn-Texte nur für Titel mit Rollenwort (wie bei den Firmenlisten); _keep: nicht nach PV/BESS im Text aussortieren
+    for j in li_recs:
+        j["_keep"] = True
+    det = LI.setdefault("det", li_det())
+    LI["pending"] = (LI.get("pending") or []) + li_fill_texts(li_recs, details_cache, det)
+    STATS["fallback"] = {"searched": st}
+    log(f"Ersatzsuche nach Firmenname: {st}")
+    return []
+
+
+def fallback_jobs(cid):
+    """Stellen aus scan_fallback für eine Firma, fertig für watch: pv_only wie bei den Firmenlisten (PV/Speicher im
+    Titel oder mindestens zweimal im Text), Text nur bei Titeln mit Rollenwort."""
+    fb = FALLBACK.get(cid) or {}
+    out = []
+    for j in fb.get("jobs") or []:
+        text = j.pop("_text", None) or j.get("description") or ""
+        j.pop("_keep", None)
+        j.pop("_drop", None)
+        if fb.get("pv_only") and not (PV_ONLY.search(j.get("title") or "") or len(PV_ONLY.findall(text)) >= 2):
             continue
-        if rec["source"] != "LinkedIn" or rec.get("description"):
-            continue
-        m = re.search(r"/jobs/view/(?:[^/?#]*-)?(\d+)", url)
-        ck = f"li:{m.group(1)}" if m else None
-        hit = details_cache.get(ck) if (details_cache is not None and ck) else None
-        if hit is not None:
-            det["cached"] += 1
-            text = hit.get("text") or ""
-        else:
-            if det["read"] + det["unreadable"] >= li_max or in_row >= 6:
-                continue
-            text = li_job_text(m.group(1)) if m else None
-            if text is None:
-                det["unreadable"] += 1
-                in_row += 1
-                time.sleep(6)
-                continue
-            in_row = 0
-            det["read"] += 1
-            time.sleep(random.uniform(1.5, 3.5))
-        relevant = bool(INDUSTRY_STRICT.search(f"{rec['title']} {rec['company']} {text}"))
-        if hit is None and ck and details_cache is not None:
-            details_cache[ck] = {"text": cut(text) if relevant else "", "cached_at": TODAY}
-        if not relevant:
-            det["no_pv_bess_dropped"] += 1
-            del out[url]
-        else:
-            rec["description"] = cut(text)
+        j.pop("description", None)
+        if j["title_tier"] == "prefer" and text:
+            j["description"] = cut(text)
+        out.append(j)
+    return out
+
+
+def boards_jobspy(details_cache):
+    """Indeed, LinkedIn und der Ersatz für ausgefallene Firmenlisten — nacheinander in einem Thread (ein Takt gegenüber
+    LinkedIn); zum Schluss die späteren Leserunden für LinkedIn-Texte."""
+    indeed = safe(scan_indeed, details_cache)
+    li = safe(scan_jobspy, details_cache)
+    safe(scan_fallback, details_cache)
+    det = LI.get("det") or li_det()
+    left = li_retry(LI.get("pending") or [], details_cache, det)
+    li = [r for r in li if not r.pop("_drop", None)]
+    det["unreadable"] = len(left)
     kept = {}
-    for rec in out.values():
+    for rec in li:
         kept[rec["source"]] = kept.get(rec["source"], 0) + 1
-    STATS["jobspy"] = {"kept": kept, "abroad_dropped": abroad, "texts": det}
-    log(f"JobSpy: {len(out)} Treffer {kept}, außerhalb Deutschlands verworfen: {abroad}, Texte: {det}")
-    return list(out.values())
+    STATS.setdefault("jobspy", {}).update({"kept": kept, "texts": det, "not_read_why": dict(LI["why"])})
+    log(f"JobSpy: {len(li)} Treffer {kept}, Texte: {det}, abgewiesen: {LI['why']}")
+    return indeed + li
 
 
 
@@ -1756,18 +1970,29 @@ def scan_indeed(details_cache=None):
         err(f"jobspy nicht verfügbar: {ex}")
         return []
     st = {"searches": 0, "failed": 0, "raw": 0, "abroad_dropped": 0, "title_dropped": 0, "no_pv_bess_dropped": 0, "collapsed": 0, "kept": 0}
-    plan = [(t, int(cfg.get("results_wanted", 40))) for t in (cfg.get("terms") or (CFG.get("jobspy") or {}).get("terms", []))]
-    plan += [(t, int(cfg.get("results_wanted_broad", 200))) for t in cfg.get("broad_terms", [])]
+    plan = [(t, int(cfg.get("results_wanted", 40)), None) for t in (cfg.get("terms") or (CFG.get("jobspy") or {}).get("terms", []))]
+    plan += [(t, int(cfg.get("results_wanted_broad", 200)), None) for t in cfg.get("broad_terms", [])]
+    # regionaler Durchgang (seit 25.11.2026): breite Branchenwörter um Stuttgart, längeres Fenster — die bundesweite
+    # Suche zeigt nicht jede Stelle aus der Nähe (Probe: «Sachbearbeiter Photovoltaik», Stadtwerke Schorndorf, fehlte)
+    reg = cfg.get("regional") or {}
+    plan += [(t, int(reg.get("results_wanted", 100)), reg) for t in reg.get("terms", [])]
+    st["regional"] = {"searches": 0, "raw": 0, "kept": 0}
     out, gone = {}, set()
-    for term, want in plan:
+    for term, want, r in plan:
         st["searches"] += 1
+        tag = f"indeed {r.get('label', 'regional')}: {term}" if r else f"indeed: {term}"
+        kw = dict(site_name=["indeed"], search_term=term, location=(r or cfg).get("location", "Deutschland"),
+                  country_indeed=cfg.get("country", "germany"), hours_old=int((r or cfg).get("hours_old", 48)),
+                  results_wanted=want, description_format="markdown", verbose=0)
+        if r and r.get("distance") is not None:
+            kw["distance"] = int(r["distance"])  # Meilen
+        if r:
+            st["regional"]["searches"] += 1
         try:
-            df = scrape_jobs(site_name=["indeed"], search_term=term, location=cfg.get("location", "Deutschland"),
-                             country_indeed=cfg.get("country", "germany"), hours_old=int(cfg.get("hours_old", 48)),
-                             results_wanted=want, description_format="markdown", verbose=0)
+            df = scrape_jobs(**kw)
         except Exception as ex:  # noqa: BLE001
             st["failed"] += 1
-            err(f"jobspy indeed «{term}»: {str(ex)[:120]}")
+            err(f"jobspy {tag}: {str(ex)[:120]}")
             time.sleep(3)
             continue
         for _, row in (df.iterrows() if df is not None and len(df) else []):
@@ -1775,10 +2000,12 @@ def scan_indeed(details_cache=None):
             if not url or url in gone:
                 continue
             if url in out:
-                if f"indeed: {term}" not in out[url]["found_by"]:
-                    out[url]["found_by"].append(f"indeed: {term}")
+                if tag not in out[url]["found_by"]:
+                    out[url]["found_by"].append(tag)
                 continue
             st["raw"] += 1
+            if r:
+                st["regional"]["raw"] += 1
             loc = row.get("location")
             loc = "" if loc is None or isinstance(loc, float) else str(loc)
             title, company = str(row.get("title") or ""), str(row.get("company") or "")
@@ -1810,8 +2037,10 @@ def scan_indeed(details_cache=None):
                 "url": url,
                 "title_tier": tier,
                 "description": cut(strip_html(desc)) if desc else None,
-                "found_by": [f"indeed: {term}"],
+                "found_by": [tag],
             }
+            if r:
+                st["regional"]["kept"] += 1
         time.sleep(1.5)
     kept, groups = [], {}
     for rec in out.values():
@@ -1906,14 +2135,25 @@ def scan_xing(details_cache):
     # Die Suche ohne Datumsfilter zeigt Tag für Tag dieselben Stellen (Reihenfolge nach Relevanz). Darum:
     # «letzte 24 Stunden» für enge Begriffe und breite Branchenwörter (bis pages_24h Seiten), dazu als Netz
     # «letzte Woche» für die engen Begriffe. sincePeriod ist der Datumsfilter der XING-Suche (Probe 14.11.2026).
-    plan = [(t, "LAST_24_HOURS", int(cfg.get("pages_24h", 3))) for t in list(terms) + list(cfg.get("broad_terms") or [])]
-    plan += [(t, "LAST_WEEK", 1) for t in terms]
-    for term, since, max_pages in plan:
+    plan = [(t, "LAST_24_HOURS", int(cfg.get("pages_24h", 3)), None) for t in list(terms) + list(cfg.get("broad_terms") or [])]
+    plan += [(t, "LAST_WEEK", 1, None) for t in terms]
+    # regionaler Durchgang (seit 25.11.2026): breite Branchenwörter um Stuttgart (location + radius in km, Probe 25.11.:
+    # «Photovoltaik», Stuttgart, 70 km, letzte Woche → 24 Stellen) — die bundesweite Suche zeigt je Begriff nur die
+    # ersten Seiten nach Relevanz
+    reg = cfg.get("regional") or {}
+    plan += [(t, reg.get("since", "LAST_WEEK"), int(reg.get("pages", 2)), reg) for t in reg.get("terms", [])]
+    st["regional"] = {"searches": 0, "cards": 0}
+    for term, since, max_pages, r in plan:
         if fails >= 3:
             err("XING: Suche dreimal hintereinander ohne Antwort — abgebrochen")
             break
+        tag = f"xing {r.get('label', 'regional')}: {term}" if r else f"xing: {term}"
         for pno in range(1, max_pages + 1):
-            q = {"keywords": term, "location": cfg.get("location", "Deutschland"), "sincePeriod": since}
+            q = {"keywords": term, "location": (r or cfg).get("location", "Deutschland"), "sincePeriod": since}
+            if r and r.get("radius"):
+                q["radius"] = int(r["radius"])
+            if r:
+                st["regional"]["searches"] += 1
             if pno > 1:
                 q["page"] = pno
             page = xing_get("https://www.xing.com/jobs/search?" + urlencode(q))
@@ -1927,11 +2167,13 @@ def scan_xing(details_cache):
             cards, new = xing_cards(page), 0
             for c in cards:
                 st["cards"] += 1
+                if r:
+                    st["regional"]["cards"] += 1
                 if c["id"] in found:
-                    if term not in found[c["id"]]["terms"]:
-                        found[c["id"]]["terms"].append(term)
+                    if tag not in found[c["id"]]["tags"]:
+                        found[c["id"]]["tags"].append(tag)
                 else:
-                    found[c["id"]] = {**c, "terms": [term]}
+                    found[c["id"]] = {**c, "tags": [tag]}
                     new += 1
             time.sleep(random.uniform(2, 4))
             if len(cards) < 4 or not new:
@@ -1972,7 +2214,7 @@ def scan_xing(details_cache):
                     "location": det.get("location") or c["location"], "published": det.get("published"),
                     "url": "https://www.xing.com" + c["path"], "title_tier": tier,
                     "description": cut(det["description"]) if det.get("description") else None,
-                    "found_by": [f"xing: {t}" for t in c["terms"]]})
+                    "found_by": list(c["tags"])})
     st["kept"] = len(out)
     STATS["xing"] = st
     log(f"XING: {st}")
@@ -2115,6 +2357,7 @@ def scan_serpapi():
     dup_index = {}
     used = 0
     stale_hits = 0
+    per_q = {}  # je Abfrage: Rohtreffer der ersten Seite, gibt es weitere Seiten, behalten, neu (neu zählt main())
     for label, location, lrad, q in plan:
         params = dict(common, q=q)
         if location:
@@ -2126,6 +2369,7 @@ def scan_serpapi():
         tag = f"Google Jobs {label}: {q}" if label else f"Google Jobs: {q}"
         d = http_get(base, params, headers=UA, tries=2, timeout=60)
         used += 1
+        per_q[tag] = {"raw": 0, "more": False, "kept": 0, "new": 0}
         if not isinstance(d, dict):
             continue
         if d.get("error") and not d.get("jobs_results"):
@@ -2165,6 +2409,7 @@ def scan_serpapi():
                 if uds:
                     break
         jobs = d.get("jobs_results") or []
+        per_q[tag] = {"raw": len(jobs), "more": bool((d.get("serpapi_pagination") or {}).get("next_page_token")), "kept": 0, "new": 0}
         old = 0
         for j in jobs:
             if not isinstance(j, dict):
@@ -2232,7 +2477,11 @@ def scan_serpapi():
         # Filter wirkt offenbar nicht mehr – nächstes Mal neu ermitteln
         state.pop("uds_3days", None)
         err("SerpApi: Datumsfilter lieferte nur alte Treffer – wird neu ermittelt")
-    st.update({"used_today": used, "results": len(out), "queries": todays, "uds": bool(uds), "boost": boost})
+    for rec in out.values():
+        for tag in rec["found_by"]:
+            if tag in per_q:
+                per_q[tag]["kept"] += 1
+    st.update({"used_today": used, "results": len(out), "queries": todays, "uds": bool(uds), "boost": boost, "per_query": per_q})
     state.update({"last_date": TODAY, "used_today": used, "left": (int(left) - used) if left is not None else None,
                   "month": TODAY[:7], "used_month": (state.get("used_month", 0) if state.get("month") == TODAY[:7] else 0) + used})
     save_json("serp-log.json", state)
@@ -2334,9 +2583,15 @@ def health(prefer, boards, minutes):
         alerts.append("ленты компаний не загрузились: " + ", ".join(failed[:6]) + (f" и ещё {len(failed) - 6}" if len(failed) > 6 else ""))
     wd = STATS.get("workday") or {}
     if wd.get("failed"):
-        why = "защита Cloudflare от ботов" if wd.get("blocked") else "ошибка или лимит запросов"
-        alerts.append(f"Workday не отдал списки ({why}): {', '.join(wd['failed'])} — их вакансии сегодня только из "
-                      "Jobbörse и досок")
+        # Seit 25.11.2026 sucht scan_fallback diese Firmen nach ihrem Namen auf Indeed und LinkedIn: gewarnt wird nur
+        # noch, wenn auch das nicht lief (stats.workday und stats.fallback stehen in jedem Fall in der Datei)
+        fb = STATS.get("fallback") or {}
+        searched = set(fb.get("searched") or {}) - set(fb.get("no_search") or [])
+        rest = [n for n, c in zip(wd["failed"], wd.get("failed_ids") or []) if c not in searched]
+        if rest or not wd.get("failed_ids"):
+            why = "защита Cloudflare от ботов" if wd.get("blocked") else "ошибка или лимит запросов"
+            alerts.append(f"Workday не отдал списки ({why}), и поиск по имени компании не сработал: "
+                          f"{', '.join(dict.fromkeys(rest or wd['failed']))} — их вакансии сегодня только из Jobbörse и досок")
     hosts = {}
     for e in ERRORS:
         m = re.match(r"(?:GET|POST) https?://([^/ ]+)", e)
@@ -2376,7 +2631,7 @@ def main():
         "jobboerse": jobboerse,
         "feeds": lambda: scan_feeds(details_cache),
         "atom_xing": lambda: safe(scan_atom) + safe(scan_xing, details_cache),
-        "jobspy": lambda: safe(scan_indeed, details_cache) + safe(scan_jobspy, details_cache),
+        "jobspy": lambda: boards_jobspy(details_cache),
         "serpapi": scan_serpapi,
     })
     if res.get("jobboerse") is None:
@@ -2391,6 +2646,23 @@ def main():
                 cur["error"] = entry["error"]
         else:
             watch[cid] = entry
+    # Ersatz für Firmenlisten, die nicht luden (scan_fallback): Stellen aus der Suche nach dem Firmennamen anhängen.
+    # Lief die Suche, gilt die Firma als geprüft (sie bleibt in watch) — die Morgenaufgabe könnte die Liste auch nicht öffnen.
+    fb_new = {}
+    for cid in list(FALLBACK):
+        entry = watch.get(cid)
+        if entry is None:
+            continue
+        have = {_title_key(j.get("title")) for j in entry.get("jobs") or []}
+        new = [j for j in fallback_jobs(cid) if _title_key(j.get("title")) not in have]
+        entry.setdefault("jobs", []).extend(new)
+        fb_new[cid] = len(new)
+        if FALLBACK[cid].get("ok"):
+            entry["method"] = f"{entry['method']}→" + "+".join(FALLBACK[cid].get("via") or ["suche"])
+            entry["fallback"] = True
+            entry.pop("error", None)
+    if FALLBACK:
+        STATS.setdefault("fallback", {}).update({"added": fb_new, "no_search": sorted(c for c, v in FALLBACK.items() if not v.get("ok"))})
     boards = (res.get("atom_xing") or []) + (res.get("jobspy") or []) + (res.get("serpapi") or [])
 
     # Titel mit «weichem» Ausschlusswort (soft_only): nur mit PV-/Speicherbezug behalten, sonst wie bisher verwerfen
@@ -2478,6 +2750,22 @@ def main():
         pend[name] = {k: v for k, v in pend[name].items() if k in seen[name]}
     seen["pending"] = pend
     STATS["first_seen_again"] = again
+    # Google Jobs: Ertrag je Abfrage (Rohtreffer, volle Seite, behalten, neu) — Grundlage, um die Abfragen zu gewichten,
+    # wenn das Bonus-Guthaben aufgebraucht ist und nur noch halb so viele Suchen am Tag laufen
+    sp = STATS.get("serpapi") or {}
+    if sp.get("per_query") and not sp.get("from_cache"):
+        for b in boards:
+            if b.get("source") == "Google Jobs" and b.get("first_seen") == stamp:
+                for tag in b.get("found_by") or []:
+                    if tag in sp["per_query"]:
+                        sp["per_query"][tag]["new"] += 1
+        slog = load_json("serp-log.json", {})
+        yld = slog.setdefault("yield", {})
+        for tag, v in sp["per_query"].items():
+            y = yld.setdefault(tag, {"runs": 0, "raw": 0, "full": 0, "kept": 0, "new": 0})
+            y.update({"runs": y["runs"] + 1, "raw": y["raw"] + v["raw"], "full": y["full"] + int(v["more"]),
+                      "kept": y["kept"] + v["kept"], "new": y["new"] + v["new"], "last": TODAY})
+        save_json("serp-log.json", slog)
     seen["refnr"] = {k: v for k, v in seen["refnr"].items() if v >= cutoff}
     li_cutoff = (NOW - dt.timedelta(days=7)).date().isoformat()  # LinkedIn-Texte nur 7 Tage
     details_cache = {k: v for k, v in details_cache.items()
@@ -2494,7 +2782,7 @@ def main():
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
             "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby, Sitemap, d.vinci, Workable, Greenhouse, RSS, JSON, eigene Karriereseite = page): id → {name, method, jobs[]}; first_seen je Stelle = wann der Scanner sie zum ersten Mal sah (die Morgenaufgabe nimmt nur Stellen nach ihrem letzten Lauf; fehlte eine Stelle in der Datei, die die Morgenaufgabe las, zählt ihr Wiederauftauchen); jobs mit title_tier prefer haben meist description (Personio über search.json ohne); JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten). Firmen, deren Quelle heute nicht lud, fehlen hier (stats.watch_failed) — selbst prüfen",
-            "title_soft": "true an Stellen in candidates, watch und boards: der Titel enthält ein «weiches» Ausschlusswort (config title_soft: Montage, Kundenservice, Customer Success, Logistik, Gas, Wasser, Vertriebsinnendienst; oder Senior neben Junior) und ein Rollenwort; behalten, weil es einen PV-/Speicherbezug gibt (eigene Liste einer beobachteten Firma, Wort im Titel/Firmennamen oder im Text; stats.title_soft). Kein Urteil über die Rolle — nach Fokus und Volltext entscheiden",
+            "title_soft": "true an Stellen in candidates, watch und boards: der Titel enthält ein «weiches» Ausschlusswort (config title_soft: Montage, Kundenservice, Customer Success, Logistik, Gas, Wasser, Vertriebsinnendienst; oder Senior neben Junior; oder Senior nur als Möglichkeit — «(Senior) Projektmanager», «Projektleiter / Senior Projektleiter», config title_senior_optional: die Stelle ist auch ohne Senior ausgeschrieben, die Stufe nach dem Volltext beurteilen) und ein Rollenwort; behalten, weil es einen PV-/Speicherbezug gibt (eigene Liste einer beobachteten Firma, Wort im Titel/Firmennamen oder im Text; stats.title_soft). Kein Urteil über die Rolle — nach Fokus und Volltext entscheiden",
             "boards": "verify=true: Fundstelle nur auf einer Seite mit vielen veralteten Anzeigen (config stale_hosts) — zweite Fundstelle suchen, ohne sie nicht aufnehmen; eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); first_seen = wann der Scanner die Stelle zum ersten Mal sah (nur Stellen nach dem letzten eigenen Lauf nehmen); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
         },
         "candidates": sorted(prefer, key=lambda r: (r.get("km") is None, r.get("km") or 0, r.get("company") or "")),
@@ -2502,7 +2790,7 @@ def main():
         "watch": watch,
         "boards": boards,
         "blind": blind,
-        "filters": {k: CFG.get(k) for k in ("title_exclude", "title_prefer", "title_adjacent", "title_core", "title_soft", "title_soft_proof", "industry_strict_regex", "stale_hosts")},
+        "filters": {k: CFG.get(k) for k in ("title_exclude", "title_prefer", "title_adjacent", "title_core", "title_soft", "title_soft_proof", "title_senior_optional", "industry_strict_regex", "stale_hosts")},
         "stats": STATS,
         "errors": ERRORS,
         "minutes": round((time.time() - START) / 60, 1),
