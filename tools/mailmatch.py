@@ -41,13 +41,14 @@ def load(p,default):
   except Exception:return default
 def make_tier(f):
   rx=lambda k:re.compile(f[k],re.I) if f.get(k) else None
-  EX,PR,AD,CO,SO=rx('title_exclude'),rx('title_prefer'),rx('title_adjacent'),rx('title_core'),rx('title_soft')
+  EX,PR,AD,CO,SO,OP=rx('title_exclude'),rx('title_prefer'),rx('title_adjacent'),rx('title_core'),rx('title_soft'),rx('title_senior_optional')
   def tier(t):
     t=t or ''
     hits=[m.group(0) for m in EX.finditer(t)] if EX else []
     soft=False
     if hits:
-      jr=bool(re.search(r'junior',t,re.I))
+      # «Senior» рядом с «Junior» или только как возможность («(Senior) Projektmanager», правило сканера title_senior_optional)
+      jr=bool(re.search(r'junior',t,re.I)) or bool(OP and OP.search(t) and not re.search(r'\bsenior|\bsr\.',OP.sub(' ',t),re.I))
       soft=bool(PR and PR.search(t)) and all((SO and SO.fullmatch(h)) or (jr and re.match(r'senior|sr\.',h,re.I)) for h in hits)
       if not soft:return 'drop'
     if AD and AD.search(t) and not (CO and CO.search(t)):return 'drop'
