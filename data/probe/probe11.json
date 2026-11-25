@@ -1,0 +1,751 @@
+{
+ "details_cache_in": 2952,
+ "personio_giga-green": {
+  "n": 3,
+  "pv_only_n": 3,
+  "offices": [
+   "München",
+   "Remote"
+  ],
+  "tiers": {
+   "prefer": 3,
+   "other": 0,
+   "drop": 0
+  },
+  "sample": [
+   {
+    "title": "(Senior) Projekt Manager:in (alle) - Photovoltaik Bauphase (Süddeutschland)",
+    "company": "GIGA.GREEN",
+    "loc": "München",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "Компании под наблюдением: GIGA.GREEN",
+    "url": "https://giga-green.jobs.personio.de/job/1853612",
+    "published": "2024-11-28"
+   },
+   {
+    "title": "Mitarbeiter:in (alle) für die kaufmännische Betriebsführung - Photovoltaikanlagen",
+    "company": "GIGA.GREEN",
+    "loc": "Remote",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "Компании под наблюдением: GIGA.GREEN",
+    "url": "https://giga-green.jobs.personio.de/job/2433995",
+    "published": "2025-11-20"
+   },
+   {
+    "title": "Technische Betriebsführung (alle) - Photovoltaik",
+    "company": "GIGA.GREEN",
+    "loc": "Remote",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "Компании под наблюдением: GIGA.GREEN",
+    "url": "https://giga-green.jobs.personio.de/job/2589230",
+    "published": "2026-04-01"
+   }
+  ],
+  "pv_sample": [
+   {
+    "title": "(Senior) Projekt Manager:in (alle) - Photovoltaik Bauphase (Süddeutschland)",
+    "company": "GIGA.GREEN",
+    "loc": "München",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "Компании под наблюдением: GIGA.GREEN",
+    "url": "https://giga-green.jobs.personio.de/job/1853612",
+    "published": "2024-11-28"
+   },
+   {
+    "title": "Mitarbeiter:in (alle) für die kaufmännische Betriebsführung - Photovoltaikanlagen",
+    "company": "GIGA.GREEN",
+    "loc": "Remote",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "Компании под наблюдением: GIGA.GREEN",
+    "url": "https://giga-green.jobs.personio.de/job/2433995",
+    "published": "2025-11-20"
+   },
+   {
+    "title": "Technische Betriebsführung (alle) - Photovoltaik",
+    "company": "GIGA.GREEN",
+    "loc": "Remote",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "Компании под наблюдением: GIGA.GREEN",
+    "url": "https://giga-green.jobs.personio.de/job/2589230",
+    "published": "2026-04-01"
+   }
+  ]
+ },
+ "personio_getec": {
+  "n": 31,
+  "pv_only_n": 0,
+  "offices": [
+   "Hannover",
+   "Magdeburg"
+  ],
+  "tiers": {
+   "prefer": 2,
+   "other": 6,
+   "drop": 23
+  },
+  "sample": [
+   {
+    "title": "Immobilienbuchhalter  (w/m/d)",
+    "company": "GETEC",
+    "loc": "Hannover",
+    "tier": "other",
+    "text": 0,
+    "by": "Компании под наблюдением: GETEC",
+    "url": "https://getec-holding.jobs.personio.de/job/2346964",
+    "published": "2025-09-18"
+   },
+   {
+    "title": "Immobilienverwalter Gewerbeimmobilien (w/m/d)",
+    "company": "GETEC",
+    "loc": "Hannover",
+    "tier": "other",
+    "text": 0,
+    "by": "Компании под наблюдением: GETEC",
+    "url": "https://getec-holding.jobs.personio.de/job/1507946",
+    "published": "2024-04-17"
+   },
+   {
+    "title": "Initiativbewerbung",
+    "company": "GETEC",
+    "loc": "Hannover",
+    "tier": "other",
+    "text": 0,
+    "by": "Компании под наблюдением: GETEC",
+    "url": "https://getec-holding.jobs.personio.de/job/1325701",
+    "published": "2023-11-14"
+   },
+   {
+    "title": "Initiativbewerbung",
+    "company": "GETEC",
+    "loc": "Hannover",
+    "tier": "other",
+    "text": 0,
+    "by": "Компании под наблюдением: GETEC",
+    "url": "https://getec-holding.jobs.personio.de/job/2637572",
+    "published": "2026-05-18"
+   },
+   {
+    "title": "Objektmanager für Großimmobilien (m/w/d)",
+    "company": "GETEC",
+    "loc": "Hannover",
+    "tier": "prefer",
+    "text": 2664,
+    "by": "Компании под наблюдением: GETEC",
+    "url": "https://getec-holding.jobs.personio.de/job/1490057",
+    "published": "2024-04-04"
+   },
+   {
+    "title": "Spezialist Konzernrechnungswesen / Konsolidierung mit Lucanet-Kenntnissen (w/m/d)",
+    "company": "GETEC",
+    "loc": "Hannover",
+    "tier": "prefer",
+    "text": 3145,
+    "by": "Компании под наблюдением: GETEC",
+    "url": "https://getec-holding.jobs.personio.de/job/2812862",
+    "published": "2026-09-24"
+   },
+   {
+    "title": "Steuerberater: in / Steuerberateranwärter:in  (w/m/d)",
+    "company": "GETEC",
+    "loc": "Hannover",
+    "tier": "other",
+    "text": 0,
+    "by": "Компании под наблюдением: GETEC",
+    "url": "https://getec-holding.jobs.personio.de/job/1712616",
+    "published": "2024-09-09"
+   },
+   {
+    "title": "Steuerfachwirt:in (w/m/d)",
+    "company": "GETEC",
+    "loc": "Hannover",
+    "tier": "other",
+    "text": 0,
+    "by": "Компании под наблюдением: GETEC",
+    "url": "https://getec-holding.jobs.personio.de/job/2697887",
+    "published": "2026-07-03"
+   }
+  ],
+  "pv_sample": []
+ },
+ "page_vbbw": {
+  "n": 5,
+  "pv_only_n": 0,
+  "pages_read": 5,
+  "tiers": {
+   "prefer": 0,
+   "other": 1,
+   "drop": 4
+  },
+  "with_text": 5,
+  "text_from": [
+   "main"
+  ],
+  "sample": [
+   {
+    "title": "Ingenieur (w/m/d) für das technische Gebäudemanagement",
+    "company": "Vermögen und Bau Baden-Württemberg",
+    "loc": "",
+    "tier": "drop",
+    "text": 4235,
+    "by": "Компании под наблюдением: Vermögen und Bau Baden-Württemberg",
+    "url": "https://www.vermoegenundbau-bw.de/karriere/stellenangebote/ingenieur-w/m/d-fuer-das-technische-gebaeudemanagem",
+    "published": null
+   },
+   {
+    "title": "stellvertretende Leitung der Abteilung 10 - Hochbau 5 Hochschulbau Altstadt Heidelberg zugleich Leit",
+    "company": "Vermögen und Bau Baden-Württemberg",
+    "loc": "",
+    "tier": "drop",
+    "text": 4994,
+    "by": "Компании под наблюдением: Vermögen und Bau Baden-Württemberg",
+    "url": "https://www.vermoegenundbau-bw.de/karriere/stellenangebote/stellvertretende-leitung-der-abteilung-10-hochbau-5",
+    "published": null
+   },
+   {
+    "title": "Leitung (w/m/d) der Abteilung 10 - Hochbau 5 Hochschulbau Altstadt Heidelberg",
+    "company": "Vermögen und Bau Baden-Württemberg",
+    "loc": "",
+    "tier": "drop",
+    "text": 4644,
+    "by": "Компании под наблюдением: Vermögen und Bau Baden-Württemberg",
+    "url": "https://www.vermoegenundbau-bw.de/karriere/stellenangebote/leitung-w/m/d-der-abteilung-10-hochbau-5-hochschulb",
+    "published": null
+   },
+   {
+    "title": "Werkstudierende (w/m/d) für den Bereich Organisation und Digitalisierung",
+    "company": "Vermögen und Bau Baden-Württemberg",
+    "loc": "",
+    "tier": "other",
+    "text": 3479,
+    "by": "Компании под наблюдением: Vermögen und Bau Baden-Württemberg",
+    "url": "https://www.vermoegenundbau-bw.de/karriere/stellenangebote/werkstudierende-w/m/d-fuer-den-bereich-organisation",
+    "published": null
+   },
+   {
+    "title": "Sachbearbeitung (w/m/d) im Kaufmännischen Gebäudemanagement - Schwerpunkt Buchhaltung",
+    "company": "Vermögen und Bau Baden-Württemberg",
+    "loc": "",
+    "tier": "drop",
+    "text": 4664,
+    "by": "Компании под наблюдением: Vermögen und Bau Baden-Württemberg",
+    "url": "https://www.vermoegenundbau-bw.de/karriere/stellenangebote/sachbearbeitung-w/m/d-im-kaufmaennischen-gebaeudema",
+    "published": null
+   }
+  ],
+  "pv_sample": [],
+  "errors": []
+ },
+ "xing": {
+  "stats": {
+   "searches": 18,
+   "search_failed": 0,
+   "cards": 235,
+   "unique": 106,
+   "title_dropped": 77,
+   "details_read": 6,
+   "details_cached": 23,
+   "details_failed": 0,
+   "abroad_dropped": 3,
+   "old_dropped": 7,
+   "no_pv_bess_dropped": 9,
+   "kept": 10,
+   "regional": {
+    "searches": 15,
+    "cards": 205
+   }
+  },
+  "kept": 10,
+  "regional_kept": 7,
+  "regional": [
+   {
+    "title": "Sachbearbeitung (w/m/d) in der Stabstelle Klimaschutz – Photovoltaik und Ladeinfrastruktur",
+    "company": "Vermögen und Bau BW Amt Tübingen",
+    "loc": "Tübingen, Baden-Württemberg",
+    "tier": "prefer",
+    "text": 3489,
+    "by": "xing: Projektmanager Photovoltaik",
+    "url": "https://www.xing.com/jobs/tuebingen-sachbearbeitung-stabstelle-klimaschutz-photovoltaik-ladeinfrastruktur-1593",
+    "published": "2026-11-25"
+   },
+   {
+    "title": "Kalkulator - VOB / Flachdachbau (m/w/d)",
+    "company": "Workwise GmbH",
+    "loc": "Weinstadt, Baden-Württemberg",
+    "tier": "other",
+    "text": 2372,
+    "by": "xing Stuttgart: Photovoltaik",
+    "url": "https://www.xing.com/jobs/weinstadt-kalkulator-vob-flachdachbau-159315546",
+    "published": "2026-11-22"
+   },
+   {
+    "title": "Projektleitung Energiewirtschaft (m/w/d)",
+    "company": "HEADFOUND",
+    "loc": "Reutlingen, Baden-Württemberg",
+    "tier": "prefer",
+    "text": 2231,
+    "by": "xing Stuttgart: Photovoltaik",
+    "url": "https://www.xing.com/jobs/reutlingen-projektleitung-energiewirtschaft-159253607",
+    "published": "2026-11-18"
+   },
+   {
+    "title": "Technische Projektleitung (m/w/d) Energiemanagement und Dekarbonisierung",
+    "company": "HEADFOUND",
+    "loc": "Reutlingen, Baden-Württemberg",
+    "tier": "prefer",
+    "text": 2295,
+    "by": "xing Stuttgart: Photovoltaik",
+    "url": "https://www.xing.com/jobs/reutlingen-technische-projektleitung-energiemanagement-dekarbonisierung-159253606",
+    "published": "2026-11-18"
+   },
+   {
+    "title": "Student/in (w/m/d) - Konzeptstudie für thermische Hochleistungsspeicher",
+    "company": "Deutsches Zentrum für Luft- und Raumfahr",
+    "loc": "Stuttgart, Baden-Württemberg",
+    "tier": "other",
+    "text": 1689,
+    "by": "xing Stuttgart: Energiespeicher",
+    "url": "https://www.xing.com/jobs/stuttgart-student-konzeptstudie-thermische-hochleistungsspeicher-159293773",
+    "published": "2026-11-20"
+   },
+   {
+    "title": "Syndikusrechtsanwalt / Volljurist (m/w/d) Erneuerbare Energien",
+    "company": "wpd GmbH",
+    "loc": "Bietigheim-Bissingen, Baden-Württemberg",
+    "tier": "other",
+    "text": 2252,
+    "by": "xing Stuttgart: Erneuerbare Energien",
+    "url": "https://www.xing.com/jobs/bietigheim-bissingen-syndikusrechtsanwalt-volljurist-erneuerbare-energien-158686196",
+    "published": "2026-11-19"
+   },
+   {
+    "title": "Rechtsreferendar (m/w/d) Wahlstation Rechtsabteilung",
+    "company": "wpd GmbH",
+    "loc": "Bietigheim-Bissingen, Baden-Württemberg",
+    "tier": "other",
+    "text": 2087,
+    "by": "xing Stuttgart: Erneuerbare Energien",
+    "url": "https://www.xing.com/jobs/bietigheim-bissingen-rechtsreferendar-wahlstation-rechtsabteilung-157922115",
+    "published": "2026-11-19"
+   }
+  ]
+ },
+ "jobspy_seconds": 301,
+ "indeed": {
+  "stats": {
+   "searches": 13,
+   "failed": 0,
+   "raw": 45,
+   "abroad_dropped": 0,
+   "title_dropped": 30,
+   "no_pv_bess_dropped": 3,
+   "collapsed": 5,
+   "kept": 7,
+   "regional": {
+    "searches": 12,
+    "raw": 45,
+    "kept": 12
+   }
+  },
+  "kept": 7,
+  "regional": [
+   {
+    "title": "Sachbearbeiter (m/w/d) Photovoltaik H11426",
+    "company": "Stadtwerke Schorndorf GmbH",
+    "loc": "Schorndorf, BW, Germany",
+    "tier": "prefer",
+    "text": 3821,
+    "by": "indeed Stuttgart: Photovoltaik",
+    "url": "https://de.indeed.com/viewjob?jk=801d122fbfcf5824",
+    "published": "2026-11-25"
+   },
+   {
+    "title": "Fachberater Photovoltaik & Wärmepumpe für Quereinsteiger in Kornwestheim (m/w/d)",
+    "company": "FE Promotion GmbH",
+    "loc": "Kornwestheim, BW, Germany",
+    "tier": "other",
+    "text": 4000,
+    "by": "indeed Stuttgart: Photovoltaik",
+    "url": "https://de.indeed.com/viewjob?jk=12d16e298cf08a41",
+    "published": "2026-11-24"
+   },
+   {
+    "title": "Technical Program Manager",
+    "company": "Harman",
+    "loc": "Karlsbad, BW, Germany",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "indeed Stuttgart: PV",
+    "url": "https://de.indeed.com/viewjob?jk=1bc95e585fd29026",
+    "published": "2026-11-24"
+   },
+   {
+    "title": "Landschaftsgärtner als Vorarbeiter Garten - Und Landschaftsbau (w/m/d)",
+    "company": "SolNet GmbH",
+    "loc": "Vaihingen an der Enz, BW, Germany",
+    "tier": "other",
+    "text": 2155,
+    "by": "indeed Stuttgart: PV",
+    "url": "https://de.indeed.com/viewjob?jk=963f16985e960f97",
+    "published": "2026-11-23"
+   },
+   {
+    "title": "(Senior) Sachbearbeiter (w/m/d) Einspeisung / EEG – 100% Remote / Homeoffice",
+    "company": "hsag Heidelberger Services AG",
+    "loc": "Heidelberg, BW, Germany",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "indeed Stuttgart: PV",
+    "url": "https://de.indeed.com/viewjob?jk=8c2a16b9498a45a8",
+    "published": "2026-11-23"
+   },
+   {
+    "title": "Projektdisponent und Montagedisponent im Bereich Services Süd (m/w/d)",
+    "company": "GRITEC GmbH",
+    "loc": "Waghäusel, BW, Germany",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "indeed Stuttgart: Erneuerbare Energien",
+    "url": "https://de.indeed.com/viewjob?jk=ddf5f35a65f605ff",
+    "published": "2026-11-24"
+   },
+   {
+    "title": "Cost Controller (m/w/d)",
+    "company": "Vulcan Energie Ressourcen",
+    "loc": "Karlsruhe, BW, Germany",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "indeed Stuttgart: Erneuerbare Energien",
+    "url": "https://de.indeed.com/viewjob?jk=017786cc3a38b83f",
+    "published": "2026-11-23"
+   }
+  ]
+ },
+ "linkedin": {
+  "stats": {
+   "abroad_dropped": {},
+   "regional": {
+    "searches": 6,
+    "raw": 90,
+    "kept": 11,
+    "beifang": 16
+   },
+   "kept": {
+    "LinkedIn": 9
+   },
+   "texts": {
+    "read": 6,
+    "cached": 9,
+    "tries_failed": 1,
+    "unreadable": 0,
+    "no_pv_bess_dropped": 2,
+    "retry_rounds": 1,
+    "retry_read": 1
+   },
+   "not_read_why": {
+    "HTTP 429": 1
+   }
+  },
+  "kept": 9,
+  "without_text": 0,
+  "regional": [
+   {
+    "title": "Expert in PV/BESS Power Conversion",
+    "company": "Darwin Quantum",
+    "loc": "Karlsruhe, Baden-Württemberg, Germany",
+    "tier": "other",
+    "text": 4000,
+    "by": "linkedin Stuttgart: Solar",
+    "url": "https://www.linkedin.com/jobs/view/4494707123",
+    "published": "2026-11-24"
+   },
+   {
+    "title": "Projektleiter Erneuerbare Energien (m/w/d)",
+    "company": "Albwerk",
+    "loc": "Geislingen an der Steige, Baden-Württemb",
+    "tier": "prefer",
+    "text": 2255,
+    "by": "linkedin Stuttgart: Solar",
+    "url": "https://www.linkedin.com/jobs/view/4493642179",
+    "published": "2026-11-23"
+   },
+   {
+    "title": "Cost Controller (m/f/d)",
+    "company": "Vulcan Energy Germany",
+    "loc": "Karlsruhe, Baden-Württemberg, Germany",
+    "tier": "prefer",
+    "text": 3218,
+    "by": "linkedin Stuttgart: Solar",
+    "url": "https://www.linkedin.com/jobs/view/4493643342",
+    "published": "2026-11-23"
+   },
+   {
+    "title": "Cost Controller (m/w/d)",
+    "company": "Vulcan Energy Germany",
+    "loc": "Karlsruhe, Baden-Württemberg, Germany",
+    "tier": "prefer",
+    "text": 3237,
+    "by": "linkedin Stuttgart: Solar",
+    "url": "https://www.linkedin.com/jobs/view/4493636697",
+    "published": "2026-11-23"
+   },
+   {
+    "title": "Projektmanager (m/w/d)",
+    "company": "Albwerk",
+    "loc": "Geislingen an der Steige, Baden-Württemb",
+    "tier": "prefer",
+    "text": 2255,
+    "by": "linkedin Stuttgart: Solar",
+    "url": "https://www.linkedin.com/jobs/view/4493630881",
+    "published": "2026-11-23"
+   },
+   {
+    "title": "Settlements Manager",
+    "company": "Richard James Recruitment Specialists Lt",
+    "loc": "Karlsruhe, Baden-Württemberg, Germany",
+    "tier": "prefer",
+    "text": 4000,
+    "by": "linkedin Stuttgart: Solar",
+    "url": "https://www.linkedin.com/jobs/view/4493658236",
+    "published": "2026-11-23"
+   },
+   {
+    "title": "Spare Parts Manager SANY eTruck (m/w/d)",
+    "company": "Putzmeister Group",
+    "loc": "Aichtal, Baden-Württemberg, Germany",
+    "tier": "prefer",
+    "text": 3513,
+    "by": "linkedin Stuttgart: Batteriespeicher",
+    "url": "https://www.linkedin.com/jobs/view/4494078664",
+    "published": "2026-11-23"
+   },
+   {
+    "title": "BI Specialist (w/m/d)",
+    "company": "PFISTERER",
+    "loc": "Winterbach, Baden-Württemberg, Germany",
+    "tier": "prefer",
+    "text": 2502,
+    "by": "linkedin Stuttgart: Energiespeicher",
+    "url": "https://www.linkedin.com/jobs/view/4486411441",
+    "published": "2026-11-24"
+   },
+   {
+    "title": "Assistenz für die Geschäftsbereiche PPM und Technology (m/w/d)",
+    "company": "PFISTERER",
+    "loc": "Winterbach, Baden-Württemberg, Germany",
+    "tier": "prefer",
+    "text": 2823,
+    "by": "linkedin Stuttgart: Energiespeicher",
+    "url": "https://www.linkedin.com/jobs/view/4494121455",
+    "published": "2026-11-24"
+   }
+  ]
+ },
+ "fallback": {
+  "stats": {
+   "searched": {
+    "goldbeck-gruppe": {
+     "indeed": 0,
+     "linkedin": 3,
+     "kept": 0
+    },
+    "baywa-re": {
+     "indeed": 0,
+     "linkedin": 2,
+     "kept": 0
+    },
+    "canadian-solar-e-storage": {
+     "indeed": 0,
+     "linkedin": 0,
+     "kept": 0
+    },
+    "zeppelin-power-systems": {
+     "indeed": 0,
+     "linkedin": 1,
+     "kept": 0
+    },
+    "energiedienst": {
+     "indeed": 5,
+     "linkedin": 4,
+     "kept": 0
+    },
+    "cip": {
+     "indeed": 0,
+     "linkedin": 0,
+     "kept": 0
+    },
+    "getec": {
+     "indeed": 5,
+     "linkedin": 12,
+     "kept": 0
+    },
+    "pramac": {
+     "indeed": 2,
+     "linkedin": 3,
+     "kept": 0
+    }
+   }
+  },
+  "companies": {
+   "goldbeck-gruppe": {
+    "ok": true,
+    "via": [
+     "linkedin"
+    ],
+    "found": 3,
+    "after_pv_only": 3,
+    "not_dropped": 2,
+    "jobs": [
+     {
+      "title": "Projektmanager (m/w/d) Photovoiltaik",
+      "company": "GOLDBECK SOLAR Group",
+      "loc": "Hirschberg, Baden-Württemberg, Germany",
+      "tier": "prefer",
+      "text": 3055,
+      "by": "Компании под наблюдением: GOLDBECK (Gruppe) (поиск по имени:",
+      "url": "https://www.linkedin.com/jobs/view/4490876712",
+      "published": "2026-11-18"
+     },
+     {
+      "title": "Netzwerkplaner OT (m/w/d)",
+      "company": "GOLDBECK SOLAR Group",
+      "loc": "Hirschberg, Baden-Württemberg, Germany",
+      "tier": "other",
+      "text": 0,
+      "by": "Компании под наблюдением: GOLDBECK (Gruppe) (поиск по имени:",
+      "url": "https://www.linkedin.com/jobs/view/4490877659",
+      "published": "2026-11-18"
+     }
+    ]
+   },
+   "baywa-re": {
+    "ok": true,
+    "via": [
+     "linkedin"
+    ],
+    "found": 2,
+    "after_pv_only": 2,
+    "not_dropped": 0,
+    "jobs": []
+   },
+   "canadian-solar-e-storage": {
+    "ok": true,
+    "via": [],
+    "found": 0,
+    "after_pv_only": 0,
+    "not_dropped": 0,
+    "jobs": []
+   },
+   "zeppelin-power-systems": {
+    "ok": true,
+    "via": [
+     "linkedin"
+    ],
+    "found": 1,
+    "after_pv_only": 1,
+    "not_dropped": 0,
+    "jobs": []
+   },
+   "energiedienst": {
+    "ok": true,
+    "via": [
+     "indeed",
+     "linkedin"
+    ],
+    "found": 7,
+    "after_pv_only": 7,
+    "not_dropped": 3,
+    "jobs": [
+     {
+      "title": "Sachbearbeiter B2C Lieferantenwechsel (m/w/d)",
+      "company": "naturenergie netze",
+      "loc": "Rheinfelden, BW, Germany",
+      "tier": "prefer",
+      "text": 2567,
+      "by": "Компании под наблюдением: Energiedienst (поиск по имени: Ind",
+      "url": "https://de.indeed.com/viewjob?jk=286da5756ed668a4",
+      "published": "2026-11-24"
+     },
+     {
+      "title": "Sachbearbeiter erneuerbare Energien (m/w/d)",
+      "company": "naturenergie netze",
+      "loc": "Rheinfelden, BW, Germany",
+      "tier": "prefer",
+      "text": 1436,
+      "by": "Компании под наблюдением: Energiedienst (поиск по имени: Ind",
+      "url": "https://de.indeed.com/viewjob?jk=7df47ae29cde27df",
+      "published": "2026-11-18"
+     },
+     {
+      "title": "Enterprise Architect (m/w/d)",
+      "company": "naturenergie",
+      "loc": "Rheinfelden (Baden), Baden-Württemberg, ",
+      "tier": "other",
+      "text": 0,
+      "by": "Компании под наблюдением: Energiedienst (поиск по имени: Lin",
+      "url": "https://www.linkedin.com/jobs/view/4491843778",
+      "published": "2026-11-18"
+     }
+    ]
+   },
+   "cip": {
+    "ok": true,
+    "via": [],
+    "found": 0,
+    "after_pv_only": 0,
+    "not_dropped": 0,
+    "jobs": []
+   },
+   "getec": {
+    "ok": true,
+    "via": [
+     "indeed",
+     "linkedin"
+    ],
+    "found": 11,
+    "after_pv_only": 0,
+    "not_dropped": 0,
+    "jobs": []
+   },
+   "pramac": {
+    "ok": true,
+    "via": [
+     "indeed",
+     "linkedin"
+    ],
+    "found": 4,
+    "after_pv_only": 4,
+    "not_dropped": 2,
+    "jobs": [
+     {
+      "title": "Projektmanager Special Projects (m/w/d)",
+      "company": "Pramac GmbH (Germany)",
+      "loc": "Fellbach, BW, Germany",
+      "tier": "prefer",
+      "text": 3939,
+      "by": "Компании под наблюдением: Pramac (поиск по имени: Indeed)",
+      "url": "https://de.indeed.com/viewjob?jk=9656b47de75d73d8",
+      "published": "2026-11-18"
+     },
+     {
+      "title": "Technical Project Manager BESS (m/w/d)",
+      "company": "PRAMAC",
+      "loc": "Pfullingen, Baden-Württemberg, Germany",
+      "tier": "prefer",
+      "text": 4000,
+      "by": "Компании под наблюдением: Pramac (поиск по имени: LinkedIn)",
+      "url": "https://www.linkedin.com/jobs/view/4481885071",
+      "published": "2026-11-18"
+     }
+    ]
+   }
+  }
+ },
+ "errors": [],
+ "seconds": 402
+}
