@@ -20,17 +20,19 @@ def ids(u):
     m=re.search(p,u if isinstance(u,str) else '',re.I)
     if m:out.add(k+':'+m.group(1).lower())
   return out
-TRACK=re.compile(r'^(utm_|trk|ref|mid|otp|lipi$|eid$|fbclid$|gclid$|mc_|tk$|qd$|rd$|alid$|bb$|from$|xpse$|xfps$|sc_|cid$|ecid$)',re.I)
+TRACK=re.compile(r'^(utm_|trk|fbclid$|gclid$|mc_|gh_src$|lipi$|tk$|from$|xpse$|xfps$|bb$|sc_|source$|src$|lang$|language$|locale$|hl$)',re.I)
 def ukey(u):
-  """Ключ ссылки. norm_url из модуля сверки отрезает всё после «?», и у сайтов, где номер вакансии стоит в параметрах
-  (Indeed ?jk=, eejobs ?id=, hrworks ?id=), все ссылки сливаются в одну — «уже в таблице» выходило бы у каждой. Поэтому:
-  номер в самом адресе — параметры не нужны; иначе параметры остаются, кроме меток отслеживания."""
+  """Ключ ссылки — то же правило, что norm_url модуля сверки таблицы с 25.11.2026 (своя копия, чтобы отбор не зависел от
+  версии модуля): номер вакансии в самом адресе (5+ цифр подряд) — параметры не нужны; иначе номер может стоять в
+  параметрах (Indeed ?jk=, eejobs ?id=, hrworks ?id=), и они остаются, кроме меток отслеживания. Прежний norm_url отрезал
+  всё после «?», и все ссылки таких сайтов сливались в одну — «уже в таблице» выходило бы у каждой."""
   u=(u if isinstance(u,str) else '').strip()
   if not u.lower().startswith('http'):return ''
-  head,_,q=u.partition('?');q=q.split('#')[0];head=head.split('#')[0].lower().rstrip('/')
-  path=re.sub(r'^https?://[^/]+','',head)
-  if re.search(r'\d{4,}',path) or path.count('/')>=3:return head
-  keep=sorted(x.lower() for x in q.split('&') if x and not TRACK.match(x.split('=')[0]))
+  m=re.match(r'https?://[^/?#]*indeed\.[^/?#]*/[^#]*[?&]jk=([0-9a-f]{8,})',u,re.I)
+  if m:return 'https://de.indeed.com/viewjob?jk='+m.group(1).lower()
+  head,_,q=re.sub(r'#.*$','',u).lower().partition('?');head=head.rstrip('/')
+  if not q or re.search(r'\d{5,}',re.sub(r'^https?://[^/]+','',head)):return head
+  keep=sorted(x for x in q.split('&') if x and not TRACK.match(x.split('=')[0]))
   return head+('?'+'&'.join(keep) if keep else '')
 def links(r):
   return [u for u in [r.get('url'),r.get('external_url')]+list(r.get('otherUrls') or []) if isinstance(u,str) and u]
