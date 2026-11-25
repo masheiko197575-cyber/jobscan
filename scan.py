@@ -2338,6 +2338,9 @@ def scan_serpapi():
         left = acct.get("total_searches_left", acct.get("plan_searches_left"))
         st["left"] = left
         st["plan"] = acct.get("plan_name")
+        # nur Zahlen zum Guthaben (Monatskontingent, Rest, Zusatzguthaben, Verbrauch) — nie Schlüssel oder Adresse
+        st["account"] = {k: acct[k] for k in ("searches_per_month", "plan_searches_left", "extra_credits", "this_month_usage")
+                         if isinstance(acct.get(k), (int, float)) and not isinstance(acct.get(k), bool)}
     reserve = int(cfg.get("reserve", 10))
     if left is not None and int(left) <= reserve:
         err(f"SerpApi: nur noch {left} Suchen übrig – übersprungen")
@@ -2345,7 +2348,8 @@ def scan_serpapi():
         save_json("serp-log.json", state)
         return []
     # Suchläufe: bundesweit und lokal (Stuttgart + Umkreis), Abfragen rotieren tageweise;
-    # solange viel Guthaben da ist (Bonus-Suchen), doppelt so viele pro Tag
+    # solange das Guthaben über boost_above liegt, doppelt so viele pro Tag; boost_above = 31 Tage × per_day + Reserve,
+    # damit auch ohne Aufstockung ein voller Monat im Normaltakt gedeckt bleibt
     passes = cfg.get("passes") or [{"label": "", "location": cfg.get("location"), "queries": cfg.get("queries") or [], "per_day": int(cfg.get("per_day", 7))}]
     boost = 2 if (left is not None and int(left) > int(cfg.get("boost_above", 400))) else 1
     budget = (int(left) - reserve) if left is not None else 10 ** 6
