@@ -32,7 +32,7 @@ import xml.etree.ElementTree as ET
 
 import requests
 from urllib import robotparser
-from urllib.parse import unquote, urlencode, urljoin, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urljoin, urlparse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, "data")
@@ -89,33 +89,58 @@ def mark_stale(boards, records):
     return kept, st
 
 
-def stamp_watch(watch, wseen, stamp, prev):
-    """first_seen für die Stellen der beobachteten Firmen (wie bei den Boards). Beim ersten Lauf mit diesem Feld (wseen ist
-    None) gilt alles aus der vorigen today.json als damals gesehen."""
-    if wseen is None:
-        pstamp = (prev or {}).get("generated") or stamp
-        wseen = {f"{cid}|{j.get('id') or j.get('refnr')}": pstamp
-                 for cid, v in ((prev or {}).get("watch") or {}).items() for j in v.get("jobs") or []}
-    boot = {}
-    bp = os.path.join(ROOT, "bootstrap_seen.json")
-    if os.path.exists(bp):
-        try:
-            boot = json.load(open(bp, encoding="utf-8"))
-        except Exception as ex:  # noqa: BLE001
-            err(f"bootstrap_seen.json unlesbar: {ex}")
-    # Firmen, deren Liste die Morgenaufgabe bis zum Umstieg selbst las: was der Scanner am Umstiegstag dort findet,
-    # war schon geprüft (alter Zeitstempel); ab dem Folgetag gilt wieder der Zeitpunkt des Laufs
-    bcomp = set(boot.get("companies") or []) if TODAY <= (boot.get("until") or "") else set()
-    bstamp = boot.get("stamp")
-    cur = set()
-    for cid, v in watch.items():
-        for j in v.get("jobs") or []:
-            k = f"{cid}|{j.get('id') or j.get('refnr')}"
-            cur.add(k)
-            if bstamp and cid in bcomp and k not in wseen:
-                wseen[k] = bstamp
-            j["first_seen"] = wseen.setdefault(k, stamp)
-    return wseen, cur
+def _utc(s):
+    if not s:
+        return None
+    d = dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+    return d if d.tzinfo else d.replace(tzinfo=dt.timezone.utc)
+
+
+def _berlin_offset(t):
+    """Abstand Berlin–UTC zum Zeitpunkt t (EU-Regel: Sommerzeit vom letzten Sonntag im März bis zum letzten Sonntag im
+    Oktober, jeweils 01:00 UTC) — ohne Zeitzonen-Datenbank."""
+    def last_sunday(month):
+        d = dt.date(t.year, month, 31)
+        return dt.datetime(d.year, d.month, d.day - (d.weekday() + 1) % 7, 1, tzinfo=dt.timezone.utc)
+    return dt.timedelta(hours=2 if last_sunday(3) <= t < last_sunday(10) else 1)
+
+
+def morning_before(t):
+    """Start der letzten Morgenaufgabe vor dem Zeitpunkt t (config morning_run_berlin, Ortszeit Berlin)."""
+    hh, mm = (int(x) for x in str(CFG.get("morning_run_berlin", "10:53")).split(":"))
+    loc = (t + _berlin_offset(t)).replace(tzinfo=None)
+    m = loc.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    if m > loc:
+        m -= dt.timedelta(days=1)
+    u = m.replace(tzinfo=dt.timezone.utc) - dt.timedelta(hours=1)
+    return m.replace(tzinfo=dt.timezone.utc) - _berlin_offset(u)
+
+
+def stamp_first_seen(items, smap, pending, prev_keys, prev_gen, stamp):
+    """first_seen (Watch-Stellen, Boards): wann der Scanner die Stelle zum ersten Mal sah — die Morgenaufgabe nimmt nur
+    Stellen mit first_seen nach ihrem letzten Lauf. items: [(Schlüssel, Stelle)]; smap: Schlüssel → first_seen;
+    pending: Schlüssel → first_seen der Stellen, die noch in keiner Datei standen, die die Morgenaufgabe gelesen hat.
+    Hat seit der vorigen Datei (prev_keys, prev_gen) eine Morgenaufgabe begonnen, so hat sie diese Datei gelesen: deren
+    Stellen sind übergeben. Eine Stelle, die bei der Morgenaufgabe fehlte (Quelle fiel aus, Liste unvollständig — oder sie
+    kam in einem Zwischenlauf am Nachmittag und war am nächsten Morgen nicht in der Datei), bekommt beim Wiederauftauchen
+    den Zeitstempel dieses Laufs — sonst ginge sie mit ihrem alten Stempel nie mehr an die Morgenaufgabe."""
+    now = _utc(stamp)
+    m_last = morning_before(now)
+    pg = _utc(prev_gen)
+    if pending is None:  # erster Lauf mit dieser Liste: offen ist, was nach der Morgenaufgabe vor der vorigen Datei kam
+        cut = morning_before(pg) if pg else m_last
+        pending = {k: v for k, v in smap.items() if _utc(v) > cut}
+    if pg and m_last > pg:
+        for k in [k for k in pending if k in prev_keys]:
+            del pending[k]
+    again = 0
+    for k, it in items:
+        s = smap.get(k)
+        if s is None or (k in pending and _utc(s) < m_last):
+            again += s is not None
+            smap[k] = pending[k] = stamp
+        it["first_seen"] = smap[k]
+    return pending, again
 PV_ONLY = re.compile(CFG.get("pv_only_regex") or CFG.get("industry_strict_regex") or CFG["industry_regex"], re.I)
 MAX_DESC = int(CFG.get("max_description_chars", 4000))
 
@@ -264,26 +289,6 @@ def http_get(url, params=None, headers=None, tries=3, as_json=True, timeout=40):
             last = e
             time.sleep(3)
     err(f"GET {url} {params or ''}: {last}")
-    return None
-
-
-def http_post_json(url, body, tries=2, timeout=40):
-    last = None
-    h = dict(UA)
-    h.update({"Content-Type": "application/json", "Accept": "application/json"})
-    for _ in range(tries):
-        try:
-            r = requests.post(url, json=body, headers=h, timeout=timeout)
-            if r.status_code >= 500:
-                last = f"HTTP {r.status_code}"
-                time.sleep(4)
-                continue
-            r.raise_for_status()
-            return r.json()
-        except Exception as e:  # noqa: BLE001
-            last = e
-            time.sleep(3)
-    err(f"POST {url}: {last}")
     return None
 
 
@@ -706,9 +711,96 @@ def scan_smartrecruiters(e):
     return jobs
 
 
+# Workday steht hinter Cloudflare. Seit 16.11.2026 beantwortet es Anfragen von GitHub-Servern oft mit 429 und
+# «Cf-Mitigated: challenge» (Bot-Schutz, kein Mengenlimit) — bei 8 von 10 Firmen, EWE (wd116) kam durch. Den Schutz
+# umgehen wir nicht: je Liste ein Versuch im gemeinsamen Takt (config workday_gap), nach zwei abgewiesenen Anfragen in
+# Folge keine weiteren; die abgewiesenen Firmen nach den übrigen Quellen (config workday_retry_s) noch einmal genauso.
+# Echtes Mengenlimit (429 ohne Challenge): warten (Retry-After) und wiederholen. Beschreibungen kommen aus dem Cache.
+# Eine Liste, die nicht vollständig lud, gilt als nicht geladen (Firma in watch_failed, wenn sie sonst nichts hat).
+WD = {"t": 0.0, "t429": 0.0, "fails": 0, "off": False, "patient": False, "status": None}
+WD_GAP = float(CFG.get("workday_gap", 2.0))
+
+
+def wd_stats():
+    return STATS.setdefault("workday", {"requests": 0, "blocked": 0, "429": 0, "waited_s": 0, "details_read": 0,
+                                        "details_cached": 0, "details_failed": 0, "deferred": [], "failed": []})
+
+
+def wd_call(url, body=None):
+    """Eine Workday-Anfrage (POST mit body, sonst GET) im gemeinsamen Takt → JSON oder None; WD["status"]: ok, gone
+    (404/410), blocked (Cloudflare-Challenge), 429 (Mengenlimit, auch nach Warten), error."""
+    st = wd_stats()
+    if WD["off"]:
+        WD["status"] = "blocked"
+        return None
+    h = dict(UA)
+    h["Accept"] = "application/json"
+    waits = (20, 45, 90) if WD["patient"] else (10, 25)
+    last = None
+    for i in range(len(waits) + 1):
+        pause = WD_GAP - (time.time() - WD["t"])
+        if pause > 0:
+            time.sleep(pause)
+        WD["t"] = time.time()
+        st["requests"] += 1
+        try:
+            r = (requests.post(url, json=body, headers=h, timeout=40) if body is not None
+                 else requests.get(url, headers=h, timeout=40))
+        except Exception as ex:  # noqa: BLE001
+            last = type(ex).__name__
+            time.sleep(3)
+            continue
+        if r.headers.get("Cf-Mitigated") or (r.status_code == 403 and "cloudflare" in (r.headers.get("Server") or "").lower()):
+            st["blocked"] += 1
+            WD["t429"] = time.time()
+            last = "blocked"
+            break
+        if r.status_code == 429:
+            st["429"] += 1
+            WD["t429"] = time.time()
+            last = "429"
+            if i == len(waits):
+                break
+            ra = (r.headers.get("Retry-After") or "").strip()
+            w = min(int(ra), 120) if ra.isdigit() else waits[i]
+            st["waited_s"] += w
+            time.sleep(w)
+            continue
+        if r.status_code in (404, 410):
+            WD["status"] = "gone"
+            return None
+        if r.status_code >= 500:
+            last = f"HTTP {r.status_code}"
+            time.sleep(5)
+            continue
+        if r.status_code >= 400:
+            last = f"HTTP {r.status_code}"
+            break
+        try:
+            d = r.json()
+        except ValueError:
+            last = "kein JSON"
+            break
+        WD["fails"] = 0
+        WD["status"] = "ok"
+        return d
+    if last in ("blocked", "429"):
+        WD["status"] = last
+        WD["fails"] += 1
+        if WD["fails"] >= 2:
+            WD["off"] = True
+        return None  # Firma in den zweiten Durchgang bzw. in watch_failed; Fehlereintrag macht scan_feeds
+    WD["status"] = "error"
+    err(f"{'POST' if body is not None else 'GET'} {url}: {last}")
+    return None
+
+
 def workday_facets(url, rx):
-    """Facetten-Werte (Land, Standort), deren Name auf rx passt → {facetParameter: [ids]} für appliedFacets."""
-    d = http_post_json(url, {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""}) or {}
+    """Facetten-Werte (Land, Standort), deren Name auf rx passt → {facetParameter: [ids]} für appliedFacets;
+    None, wenn die Liste nicht lud."""
+    d = wd_call(url, {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""})
+    if d is None:
+        return None
     applied = {}
 
     def walk(node, param):
@@ -724,21 +816,28 @@ def workday_facets(url, rx):
     return applied
 
 
-def scan_workday(e):
+def scan_workday(e, details_cache):
+    """Workday-Liste (öffentliche JSON-Schnittstelle der Karriereseite). None, wenn eine Seite der Liste nicht lud —
+    im ersten Durchgang auch, wenn eine Beschreibung abgewiesen wurde (dann zweiter Durchgang, siehe scan_feeds)."""
     host, tenant, site = e["host"], e["tenant"], e["site"]
     url = f"https://{host}/wday/cxs/{tenant}/{site}/jobs"
+    st = wd_stats()
     jobs = []
-    offset = 0
+    offset, total = 0, None
     locf = re.compile(e["location_regex"], re.I) if e.get("location_regex") else None
     facets = {}
     if e.get("facet_match"):
         facets = workday_facets(url, re.compile(e["facet_match"], re.I))
+        if facets is None:
+            return None
         if not facets:
-            return []  # keine Stellen in diesem Land
+            return []  # in diesem Land gerade keine Stellen (der Wert fehlt in der Facette)
     while offset < 400:
-        d = http_post_json(url, {"appliedFacets": facets, "limit": 20, "offset": offset, "searchText": e.get("searchText", "")})
-        if not d:
-            break
+        d = wd_call(url, {"appliedFacets": facets, "limit": 20, "offset": offset, "searchText": e.get("searchText", "")})
+        if d is None:
+            return None
+        if total is None:
+            total = int(d.get("total") or 0)
         posts = d.get("jobPostings") or []
         for p in posts:
             title = p.get("title") or ""
@@ -758,18 +857,29 @@ def scan_workday(e):
                 "found_by": [f"Компании под наблюдением: {e['name']}"],
             }
             if rec["title_tier"] == "prefer":
-                det = http_get(f"https://{host}/wday/cxs/{tenant}/{site}{path}", headers={**UA, "Accept": "application/json"})
-                info = (det or {}).get("jobPostingInfo") or {}
-                if info:
-                    rec["description"] = cut(strip_html(info.get("jobDescription") or ""))
-                    rec["published"] = info.get("startDate") or rec["published"]
-                time.sleep(0.3)
+                ck = f"wd:{rec['url']}"
+                c = details_cache.get(ck)
+                if c:
+                    st["details_cached"] += 1
+                else:
+                    det = wd_call(f"https://{host}/wday/cxs/{tenant}/{site}{path}")
+                    info = (det or {}).get("jobPostingInfo") or {}
+                    if info:
+                        c = {"description": cut(strip_html(info.get("jobDescription") or "")),
+                             "published": info.get("startDate"), "cached_at": TODAY}
+                        details_cache[ck] = c
+                        st["details_read"] += 1
+                    elif WD["status"] in ("blocked", "429") and not WD["patient"]:
+                        return None  # Beschreibung abgewiesen: Firma im zweiten Durchgang noch einmal
+                    elif WD["status"] != "gone":
+                        st["details_failed"] += 1
+                if c:
+                    rec["description"] = c.get("description")
+                    rec["published"] = c.get("published") or rec["published"]
             jobs.append(rec)
-        total = d.get("total") or 0
         offset += 20
         if offset >= total or not posts:
             break
-        time.sleep(0.4)
     return jobs
 
 
@@ -1324,7 +1434,8 @@ def _jget(obj, path):
 
 def scan_jsonlist(e):
     """Stellenliste als JSON (eigene Schnittstelle der Firma, WordPress «job-listings»): e["items"] = Pfad zur Liste,
-    e["fields"] = {"id", "title", "text", "date", "url"} (Pfade mit Punkt), e["url_template"] mit {id}."""
+    e["fields"] = {"id", "title", "text", "date", "url"} (Pfade mit Punkt), e["url_template"] mit {id},
+    e["text_regex"]: Text aus allen Feldern, deren Name passt."""
     d = page_get(e["url"], as_json=True)
     if d is None:
         return None
@@ -1344,6 +1455,9 @@ def scan_jsonlist(e):
         url = _jget(it, f["url"]) if f.get("url") else None
         url = url or (e.get("url_template") or "").format(id=jid)
         text = strip_html(html.unescape(str(_jget(it, f.get("text", "")) or ""))) if f.get("text") else ""
+        if e.get("text_regex"):  # Text über mehrere Felder verteilt (z. B. umantis_*-Textblöcke)
+            trx = re.compile(e["text_regex"])
+            text = strip_html(html.unescape(" \n".join(str(v) for k, v in it.items() if trx.search(k) and isinstance(v, str) and v.strip())))
         rec = {"id": f"js-{e['id']}-{jid}", "source": "Сайт компании", "company": e["name"], "title": title, "location": "",
                "published": str(_jget(it, f.get("date", "")) or "")[:10] or None, "url": url,
                "title_tier": title_tier(title), "found_by": [f"Компании под наблюдением: {e['name']}"]}
@@ -1365,38 +1479,68 @@ def scan_feeds(details_cache):
     # JOIN zuerst: bei Firmen mit zwei Systemen (ju:niz: JOIN und Personio) bleiben die JOIN-ids (wie seen in der
     # Tabelle); vom zweiten System kommen nur Stellen mit neuem Titel dazu.
     kinds = (("join", lambda e: scan_join(e, details_cache)), ("ashby", scan_ashby), ("personio", scan_personio),
-             ("recruitee", scan_recruitee), ("smartrecruiters", scan_smartrecruiters), ("workday", scan_workday),
+             ("recruitee", scan_recruitee), ("smartrecruiters", scan_smartrecruiters),
+             ("workday", lambda e: scan_workday(e, details_cache)),
              ("sitemap", lambda e: scan_sitemap(e, details_cache)), ("dvinci", scan_dvinci), ("workable", scan_workable),
              ("greenhouse", scan_greenhouse), ("rss", scan_rss), ("jsonlist", scan_jsonlist),
              ("page", lambda e: scan_page(e, details_cache)))
     counts = {}
+    later = []  # Workday-Firmen, die im ersten Durchgang gedrosselt wurden (429)
+
+    def run(kind, fn, e):
+        try:
+            return fn(e)
+        except Exception as ex:  # noqa: BLE001
+            err(f"{kind} {e.get('name')}: {ex}")
+            return None
+
+    def take(kind, e, jobs):
+        if kind == "page":
+            STATS.setdefault("page_counts", {})[e["id"]] = None if jobs is None else len(jobs)
+        if jobs and e.get("pv_only"):
+            # Arbeitgeber ohne PV/BESS-Schwerpunkt (Konzern, Stadtwerk): nur Stellen mit PV/Speicher/Netzanschluss
+            # im Titel oder mindestens zweimal im Text — sonst füllt der Standardtext der Firma die Liste
+            jobs = [j for j in jobs if PV_ONLY.search(j.get("title") or "")
+                    or len(PV_ONLY.findall(j.get("_text") or j.get("description") or "")) >= 2]
+        for j in jobs or []:
+            j.pop("_text", None)
+        entry = out.setdefault(e["id"], {"name": e["name"], "method": kind, "jobs": []})
+        if jobs is None:
+            entry["error"] = (entry.get("error") or "") + f"{kind} не открылся; "
+        else:
+            if entry["method"] != kind:  # zweites System derselben Firma: Dubletten nach Titel weglassen
+                have = {_title_key(j.get("title")) for j in entry["jobs"]}
+                jobs = [j for j in jobs if _title_key(j.get("title")) not in have]
+            entry["jobs"].extend(jobs)
+            entry["method"] = entry["method"] if entry["method"] == kind else f"{entry['method']}+{kind}"
+            counts[kind] = counts.get(kind, 0) + len(jobs)
+
     for kind, fn in kinds:
         for e in CFG.get(kind, []):
-            try:
-                jobs = fn(e)
-            except Exception as ex:  # noqa: BLE001
-                err(f"{kind} {e.get('name')}: {ex}")
-                jobs = None
-            if kind == "page":
-                STATS.setdefault("page_counts", {})[e["id"]] = None if jobs is None else len(jobs)
-            if jobs and e.get("pv_only"):
-                # Arbeitgeber ohne PV/BESS-Schwerpunkt (Konzern, Stadtwerk): nur Stellen mit PV/Speicher/Netzanschluss
-                # im Titel oder mindestens zweimal im Text — sonst füllt der Standardtext der Firma die Liste
-                jobs = [j for j in jobs if PV_ONLY.search(j.get("title") or "")
-                        or len(PV_ONLY.findall(j.get("_text") or j.get("description") or "")) >= 2]
-            for j in jobs or []:
-                j.pop("_text", None)
-            entry = out.setdefault(e["id"], {"name": e["name"], "method": kind, "jobs": []})
-            if jobs is None:
-                entry["error"] = (entry.get("error") or "") + f"{kind} не открылся; "
-            else:
-                if entry["method"] != kind:  # zweites System derselben Firma: Dubletten nach Titel weglassen
-                    have = {_title_key(j.get("title")) for j in entry["jobs"]}
-                    jobs = [j for j in jobs if _title_key(j.get("title")) not in have]
-                entry["jobs"].extend(jobs)
-                entry["method"] = entry["method"] if entry["method"] == kind else f"{entry['method']}+{kind}"
-                counts[kind] = counts.get(kind, 0) + len(jobs)
+            if kind == "workday" and WD["off"]:
+                later.append(e)
+                continue
+            jobs = run(kind, fn, e)
+            if kind == "workday" and jobs is None and WD["status"] in ("blocked", "429"):
+                later.append(e)
+                continue
+            take(kind, e, jobs)
             time.sleep(0.3)
+    if later:
+        # Workday hat abgewiesen: nach den übrigen Quellen (mindestens workday_retry_s nach der letzten Abweisung) noch
+        # einmal; was dann nicht lädt, kommt in watch_failed (die Morgenaufgabe prüft die Firma selbst, falls sie kann)
+        st = wd_stats()
+        st["deferred"] = sorted({e["id"] for e in later})
+        time.sleep(max(0.0, float(CFG.get("workday_retry_s", 150)) - (time.time() - WD["t429"])))
+        WD.update(off=False, fails=0, patient=True)
+        fn = dict(kinds)["workday"]
+        for e in later:
+            jobs = None if WD["off"] else run("workday", fn, e)
+            if jobs is None:
+                st["failed"].append(e["name"])
+                st.setdefault("failed_ids", []).append(e["id"])
+                err(f"workday {e['name']}: Liste nicht geladen ({WD['status']})")
+            take("workday", e, jobs)
     STATS["feeds"] = {"companies": len(out), "jobs": counts, "failed": sorted(k for k, v in out.items() if v.get("error"))}
     log(f"Feeds: {len(out)} Firmen, Stellen {counts}")
     return out
@@ -1879,6 +2023,38 @@ def _rel_date(txt):
     return (NOW - dt.timedelta(days=days)).date().isoformat()
 
 
+def serp_doc_id(j):
+    """Googles Kennung der Anzeige (htidocid aus share_link, sonst aus der job_id): bleibt über Tage und Suchanfragen
+    gleich. Die job_id von SerpApi hängt an der Suchanfrage und ändert sich jeden Tag (16./17.11.2026: dieselbe
+    Anzeige mit zwei job_id) — als Schlüssel machte sie jede Google-Jobs-Stelle täglich «neu» (first_seen)."""
+    for lk in (j.get("share_link"), j.get("share_url")):
+        if lk and "htidocid=" in str(lk):
+            v = (parse_qs(urlparse(str(lk)).query).get("htidocid") or [None])[0]
+            if v:
+                return v
+    jid = str(j.get("job_id") or "")
+    if jid:
+        for dec in (base64.b64decode, base64.urlsafe_b64decode):
+            try:
+                v = json.loads(dec(jid + "=" * (-len(jid) % 4)).decode("utf-8")).get("htidocid")
+                if v:
+                    return v
+            except Exception:  # noqa: BLE001
+                pass
+    return None
+
+
+def board_key(b):
+    """Schlüssel einer Board-Stelle für first_seen: id; bei Google Jobs aus der Kennung der Anzeige (Dateien bis 17.11.2026
+    tragen noch die anfrageabhängige id)."""
+    i = str(b.get("id") or b.get("url"))
+    if i.startswith("serp-"):
+        doc = serp_doc_id(b)
+        if doc:
+            return "serp-" + hashlib.sha1(doc.encode("utf-8")).hexdigest()[:16]
+    return i
+
+
 def scan_serpapi():
     """Google for Jobs über SerpApi (Free-Plan: 250 Suchen/Monat). Pro Tag höchstens `per_day` Suchen,
     höchstens einmal am Tag (Pushes lösen den Workflow mehrfach aus), Abfragen rotieren über die Tage."""
@@ -1994,7 +2170,7 @@ def scan_serpapi():
             if not isinstance(j, dict):
                 continue
             title = (j.get("title") or "").strip()
-            jid = j.get("job_id") or f"{title}|{j.get('company_name')}"
+            jid = serp_doc_id(j) or j.get("job_id") or f"{title}|{j.get('company_name')}"
             key_id = "serp-" + hashlib.sha1(str(jid).encode("utf-8")).hexdigest()[:16]
             if key_id in out:
                 if tag not in out[key_id]["found_by"]:
@@ -2152,16 +2328,24 @@ def health(prefer, boards, minutes):
         alerts.append(f"JOIN: список вакансий неполный у {join_bad} из {len(CFG.get('join', []))} компаний")
     if STATS.get("pages_went_empty"):
         alerts.append("страницы вакансий вдруг пусты (проверить разметку): " + ", ".join(STATS["pages_went_empty"][:6]))
-    failed = (STATS.get("feeds") or {}).get("failed") or []
+    wd_ids = set((STATS.get("workday") or {}).get("failed_ids") or [])  # eigene Warnung weiter unten
+    failed = [f for f in (STATS.get("feeds") or {}).get("failed") or [] if f not in wd_ids]
     if failed:
         alerts.append("ленты компаний не загрузились: " + ", ".join(failed[:6]) + (f" и ещё {len(failed) - 6}" if len(failed) > 6 else ""))
+    wd = STATS.get("workday") or {}
+    if wd.get("failed"):
+        why = "защита Cloudflare от ботов" if wd.get("blocked") else "ошибка или лимит запросов"
+        alerts.append(f"Workday не отдал списки ({why}): {', '.join(wd['failed'])} — их вакансии сегодня только из "
+                      "Jobbörse и досок")
     hosts = {}
     for e in ERRORS:
         m = re.match(r"(?:GET|POST) https?://([^/ ]+)", e)
         if m:
             hosts[m.group(1)] = hosts.get(m.group(1), 0) + 1
     if hosts:
-        alerts.append("не отвечают: " + ", ".join(f"{h} ({n})" for h, n in sorted(hosts.items(), key=lambda x: -x[1])[:5]))
+        top = sorted(hosts.items(), key=lambda x: -x[1])
+        alerts.append("не отвечают: " + ", ".join(f"{h} ({n})" for h, n in top[:8])
+                      + (f" и ещё {len(top) - 8}" if len(top) > 8 else ""))
     for src, n in counts.items():
         vals = sorted(int((h.get("counts") or {}).get(src) or 0) for h in prev if src in (h.get("counts") or {}))
         if len(vals) < 4:
@@ -2266,20 +2450,35 @@ def main():
     for rec in prefer + other:
         rec["seen_before"] = rec["refnr"] in seen["refnr"]
         seen["refnr"][rec["refnr"]] = TODAY
-    # Boards: first_seen = Zeitpunkt des Laufs, in dem der Scanner die Stelle zum ersten Mal sah — die Morgenaufgabe
-    # nimmt nur Stellen, die seit ihrem letzten Lauf dazugekommen sind
-    bseen = seen.setdefault("boards", {})
-    stamp = NOW.strftime("%Y-%m-%dT%H:%M:%SZ")
-    for b in boards:
-        b["first_seen"] = bseen.setdefault(str(b.get("id") or b.get("url")), stamp)
     boards, STATS["stale"] = mark_stale(boards, prefer + other + [dict(j, company=j.get("company") or v.get("name"))
                                                                   for v in watch.values() for j in v.get("jobs") or []])
-    wseen, wcur = stamp_watch(watch, seen.get("watch"), stamp, load_json("today.json", {}))
-    # seen.json und details.json auf 45 Tage begrenzen
+    # first_seen der Watch-Stellen und Boards (stamp_first_seen); seen.json und details.json auf 45 Tage begrenzen
+    stamp = NOW.strftime("%Y-%m-%dT%H:%M:%SZ")
     cutoff = (NOW - dt.timedelta(days=45)).date().isoformat()
+    prev = load_json("today.json", {})
+    wkey = lambda cid, j: f"{cid}|{j.get('id') or j.get('refnr')}"  # noqa: E731
+    parts = {"watch": ([(wkey(c, j), j) for c, v in watch.items() for j in v.get("jobs") or []],
+                       {wkey(c, j) for c, v in (prev.get("watch") or {}).items() for j in v.get("jobs") or []}),
+             "boards": ([(board_key(b), b) for b in boards], {board_key(b) for b in prev.get("boards") or []})}
+    pend = seen.get("pending") or {}
+    again = {}
+    for name, (items, pkeys) in parts.items():
+        smap = seen.get(name)
+        if smap is None:  # kein seen.json (data-Branch neu): was in der vorigen Datei stand, gilt als damals gesehen
+            smap = {k: prev.get("generated") or stamp for k in pkeys}
+        if name == "boards":
+            # Stellen der vorigen Datei, deren Schlüssel sich geändert hat (Google Jobs bis 17.11.2026): first_seen
+            # übernehmen, sonst gälten sie einmal als neu; sonst ohne Wirkung (die Schlüssel stehen schon in smap)
+            for b in prev.get("boards") or []:
+                if b.get("first_seen"):
+                    smap.setdefault(board_key(b), b["first_seen"])
+        pend[name], again[name] = stamp_first_seen(items, smap, pend.get(name), pkeys, prev.get("generated"), stamp)
+        cur = {k for k, _ in items}
+        seen[name] = {k: v for k, v in smap.items() if k in cur or v[:10] >= cutoff}
+        pend[name] = {k: v for k, v in pend[name].items() if k in seen[name]}
+    seen["pending"] = pend
+    STATS["first_seen_again"] = again
     seen["refnr"] = {k: v for k, v in seen["refnr"].items() if v >= cutoff}
-    seen["boards"] = {k: v for k, v in seen["boards"].items() if v[:10] >= cutoff}
-    seen["watch"] = {k: v for k, v in wseen.items() if k in wcur or v[:10] >= cutoff}
     li_cutoff = (NOW - dt.timedelta(days=7)).date().isoformat()  # LinkedIn-Texte nur 7 Tage
     details_cache = {k: v for k, v in details_cache.items()
                      if (v.get("cached_at") or "") >= (li_cutoff if k.startswith("li:") else cutoff)}
@@ -2294,7 +2493,7 @@ def main():
             "blind": "beobachtete Firmen, von denen die Jobbörse seit 30 Tagen keine einzige Stelle zeigt — dort nicht sichtbar",
             "candidates": "Jobbörse, Titel passt zur Rolle (prefer): mit description",
             "other": "Jobbörse, Titel weder ausgeschlossen noch passend: nur Titel/Firma/Ort — kurz durchsehen",
-            "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby, Sitemap, d.vinci, Workable, Greenhouse, RSS, JSON, eigene Karriereseite = page): id → {name, method, jobs[]}; first_seen je Stelle = wann der Scanner sie zum ersten Mal sah (die Morgenaufgabe nimmt nur Stellen nach ihrem letzten Lauf); jobs mit title_tier prefer haben meist description (Personio über search.json ohne); JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten). Firmen, deren Quelle heute nicht lud, fehlen hier (stats.watch_failed) — selbst prüfen",
+            "watch": "beobachtete Firmen (Jobbörse nach Name, Personio, Recruitee, SmartRecruiters, Workday, JOIN, Ashby, Sitemap, d.vinci, Workable, Greenhouse, RSS, JSON, eigene Karriereseite = page): id → {name, method, jobs[]}; first_seen je Stelle = wann der Scanner sie zum ersten Mal sah (die Morgenaufgabe nimmt nur Stellen nach ihrem letzten Lauf; fehlte eine Stelle in der Datei, die die Morgenaufgabe las, zählt ihr Wiederauftauchen); jobs mit title_tier prefer haben meist description (Personio über search.json ohne); JOIN: id = Nummer aus der Stellen-URL, Liste vollständig (alle Seiten). Firmen, deren Quelle heute nicht lud, fehlen hier (stats.watch_failed) — selbst prüfen",
             "title_soft": "true an Stellen in candidates, watch und boards: der Titel enthält ein «weiches» Ausschlusswort (config title_soft: Montage, Kundenservice, Customer Success, Logistik, Gas, Wasser, Vertriebsinnendienst; oder Senior neben Junior) und ein Rollenwort; behalten, weil es einen PV-/Speicherbezug gibt (eigene Liste einer beobachteten Firma, Wort im Titel/Firmennamen oder im Text; stats.title_soft). Kein Urteil über die Rolle — nach Fokus und Volltext entscheiden",
             "boards": "verify=true: Fundstelle nur auf einer Seite mit vielen veralteten Anzeigen (config stale_hosts) — zweite Fundstelle suchen, ohne sie nicht aufnehmen; eejobs/greenjobs (Atom), JobSpy (Indeed/LinkedIn), XING (öffentliche Suche) und Google Jobs (SerpApi); first_seen = wann der Scanner die Stelle zum ersten Mal sah (nur Stellen nach dem letzten eigenen Lauf nehmen); description = Volltext der Stelle (Google Jobs immer, LinkedIn/Indeed/XING wenn lesbar, PV/BESS darin geprüft) — dann danach bewerten, keine Kopie suchen; nur Titel, die nicht ausgeschlossen sind",
         },
