@@ -1,0 +1,604 @@
+{
+ "alerts": [
+  "ленты компаний не загрузились: enbw, netze-bw",
+  "не отвечают: careers.enbw.com (1), careers.netze-bw.de (1), serpapi.com (1)",
+  "ленты ashby: 5 (обычно около 15)"
+ ],
+ "counts": {
+  "boards": 203,
+  "candidates": 87,
+  "other": 201,
+  "watch": 979
+ },
+ "date": "2026-11-28",
+ "errors": [
+  "GET https://careers.enbw.com/sitemap.xml : HTTP 500",
+  "GET https://careers.netze-bw.de/sitemap.xml : HTTP 500",
+  "workday GOLDBECK (Gruppe): Liste nicht geladen (blocked)",
+  "workday BayWa r.e.: Liste nicht geladen (blocked)",
+  "workday Canadian Solar e-STORAGE: Liste nicht geladen (blocked)",
+  "workday Canadian Solar: Liste nicht geladen (blocked)",
+  "workday Zeppelin Power Systems: Liste nicht geladen (blocked)",
+  "workday Energiedienst: Liste nicht geladen (blocked)",
+  "workday Copenhagen Infrastructure Partners (Hamburg): Liste nicht geladen (blocked)",
+  "workday GETEC: Liste nicht geladen (blocked)",
+  "workday Pramac: Liste nicht geladen (blocked)",
+  "GET https://serpapi.com/search.json {'engine': 'google_jobs', 'api_key': '***', 'gl': 'de', 'hl': 'de', 'google_domain': 'google.de', 'q': 'Auftragsabwicklung Photovoltaik', 'location': 'Stuttgart, Baden-Württemberg, Germany', 'lrad': 75, 'uds': 'AE2AFgbf06ZzDvczg9XBG5Z3qflXQUzIJfqOS-K3wxikKFNivscgy"
+ ],
+ "generated": "2026-11-28T08:58:15Z",
+ "minutes": 15.4,
+ "stats": {
+  "atom_eejobs": {
+   "entries": 21,
+   "kept": 5
+  },
+  "atom_greenjobs": {
+   "entries": 95,
+   "kept": 5
+  },
+  "blind_count": 47,
+  "dropped": {
+   "disputed": 242,
+   "soft": 0,
+   "total": 2858
+  },
+  "fallback": {
+   "added": {
+    "baywa-re": 2,
+    "canadian-solar-e-storage": 2,
+    "cip": 0,
+    "energiedienst": 4,
+    "getec": 0,
+    "goldbeck-gruppe": 3,
+    "pramac": 0,
+    "zeppelin-power-systems": 1
+   },
+   "no_search": [],
+   "searched": {
+    "baywa-re": {
+     "indeed": 2,
+     "kept": 0,
+     "linkedin": 2
+    },
+    "canadian-solar-e-storage": {
+     "indeed": 0,
+     "kept": 0,
+     "linkedin": 2
+    },
+    "cip": {
+     "indeed": 0,
+     "kept": 0,
+     "linkedin": 0
+    },
+    "energiedienst": {
+     "indeed": 2,
+     "kept": 0,
+     "linkedin": 3
+    },
+    "getec": {
+     "indeed": 2,
+     "kept": 0,
+     "linkedin": 1
+    },
+    "goldbeck-gruppe": {
+     "indeed": 0,
+     "kept": 0,
+     "linkedin": 3
+    },
+    "pramac": {
+     "indeed": 0,
+     "kept": 0,
+     "linkedin": 0
+    },
+    "zeppelin-power-systems": {
+     "indeed": 0,
+     "kept": 0,
+     "linkedin": 1
+    }
+   }
+  },
+  "feeds": {
+   "companies": 163,
+   "failed": [
+    "baywa-re",
+    "canadian-solar-e-storage",
+    "cip",
+    "enbw",
+    "energiedienst",
+    "getec",
+    "goldbeck-gruppe",
+    "netze-bw",
+    "pramac",
+    "zeppelin-power-systems"
+   ],
+   "jobs": {
+    "ashby": 5,
+    "dvinci": 24,
+    "greenhouse": 2,
+    "join": 115,
+    "jsonlist": 9,
+    "page": 196,
+    "personio": 371,
+    "recruitee": 20,
+    "rss": 8,
+    "sitemap": 7,
+    "smartrecruiters": 18,
+    "workable": 0,
+    "workday": 1
+   }
+  },
+  "first_seen_again": {
+   "boards": 0,
+   "watch": 0
+  },
+  "indeed": {
+   "abroad_dropped": 0,
+   "collapsed": 0,
+   "failed": 0,
+   "kept": 69,
+   "no_pv_bess_dropped": 4,
+   "raw": 363,
+   "regional": {
+    "kept": 2,
+    "raw": 34,
+    "searches": 12
+   },
+   "searches": 48,
+   "title_dropped": 290
+  },
+  "jobboerse_demoted_no_industry": 93,
+  "jobboerse_details_fetched": 53,
+  "jobboerse_per_query": {
+   "DE: Agri-PV": 0,
+   "DE: BESS": 18,
+   "DE: Batteriegroßspeicher": 0,
+   "DE: Batteriespeicher": 19,
+   "DE: Battery Storage": 5,
+   "DE: Einspeisung": 2,
+   "DE: Energiedienstleistungen": 8,
+   "DE: Energiemanagement": 85,
+   "DE: Energiespeicher": 6,
+   "DE: Energiewende": 466,
+   "DE: Energy Storage": 10,
+   "DE: Erneuerbare Energien": 180,
+   "DE: Freiflächenanlagen": 2,
+   "DE: Großbatteriespeicher": 1,
+   "DE: Mieterstrom": 0,
+   "DE: Netzanschluss": 12,
+   "DE: PV": 190,
+   "DE: Photovoltaik": 166,
+   "DE: Renewable Energy": 7,
+   "DE: Solar": 131,
+   "DE: Solaranlagen": 17,
+   "DE: Solarenergie": 3,
+   "DE: Solarpark": 0,
+   "DE: Stromspeicher": 5,
+   "рядом: Agri-PV": 0,
+   "рядом: BESS": 0,
+   "рядом: Batteriegroßspeicher": 0,
+   "рядом: Batteriespeicher": 1,
+   "рядом: Battery Storage": 0,
+   "рядом: Einspeisung": 0,
+   "рядом: Energiedienstleistungen": 0,
+   "рядом: Energiemanagement": 3,
+   "рядом: Energiespeicher": 1,
+   "рядом: Energiewende": 24,
+   "рядом: Energy Storage": 0,
+   "рядом: Erneuerbare Energien": 8,
+   "рядом: Freiflächenanlagen": 0,
+   "рядом: Großbatteriespeicher": 0,
+   "рядом: Mieterstrom": 0,
+   "рядом: Netzanschluss": 0,
+   "рядом: PV": 10,
+   "рядом: Photovoltaik": 16,
+   "рядом: Renewable Energy": 0,
+   "рядом: Solar": 12,
+   "рядом: Solaranlagen": 1,
+   "рядом: Solarenergie": 0,
+   "рядом: Solarpark": 0,
+   "рядом: Stromspeicher": 2,
+   "удалённо: Agri-PV": 0,
+   "удалённо: BESS": 5,
+   "удалённо: Batteriegroßspeicher": 0,
+   "удалённо: Batteriespeicher": 1,
+   "удалённо: Battery Storage": 1,
+   "удалённо: Einspeisung": 0,
+   "удалённо: Energiedienstleistungen": 1,
+   "удалённо: Energiemanagement": 8,
+   "удалённо: Energiespeicher": 1,
+   "удалённо: Energiewende": 29,
+   "удалённо: Energy Storage": 2,
+   "удалённо: Erneuerbare Energien": 16,
+   "удалённо: Freiflächenanlagen": 0,
+   "удалённо: Großbatteriespeicher": 0,
+   "удалённо: Mieterstrom": 0,
+   "удалённо: Netzanschluss": 2,
+   "удалённо: PV": 6,
+   "удалённо: Photovoltaik": 14,
+   "удалённо: Renewable Energy": 1,
+   "удалённо: Solar": 12,
+   "удалённо: Solaranlagen": 0,
+   "удалённо: Solarenergie": 0,
+   "удалённо: Solarpark": 0,
+   "удалённо: Stromspeicher": 0
+  },
+  "jobboerse_tiers": {
+   "drop": 709,
+   "other": 109,
+   "prefer": 182
+  },
+  "jobboerse_unique": 1000,
+  "jobspy": {
+   "abroad_dropped": {},
+   "kept": {
+    "LinkedIn": 40
+   },
+   "not_read_why": {
+    "HTTP 429": 19
+   },
+   "regional": {
+    "beifang": 8,
+    "kept": 10,
+    "raw": 70,
+    "searches": 6
+   },
+   "texts": {
+    "cached": 11,
+    "no_pv_bess_dropped": 59,
+    "read": 91,
+    "retry_read": 18,
+    "retry_rounds": 2,
+    "tries_failed": 19,
+    "unreadable": 0
+   }
+  },
+  "minutes_by_source": {
+   "atom_xing": 8.7,
+   "feeds": 3.8,
+   "jobboerse": 5.5,
+   "jobspy": 15.3,
+   "serpapi": 5.1
+  },
+  "page_counts": {
+   "bessr": 3,
+   "blue-elephant-energy": 13,
+   "climagy": 4,
+   "dew21": 10,
+   "e3dc": 11,
+   "energieagentur-rems-murr": 2,
+   "energiekontor": 3,
+   "energiewerk": 8,
+   "evf-filstal": 5,
+   "franz-scheuerle-ulm": 5,
+   "greentech": 6,
+   "jurchen-technology": 1,
+   "kea-bw": 3,
+   "kreiswerke-barnim": 7,
+   "mein-solar": 2,
+   "notus-energy": 0,
+   "oeko-haus": 9,
+   "pfalzsolar": 0,
+   "pfalzwerke": 42,
+   "pne": 3,
+   "powerwerker": 6,
+   "prokon": 8,
+   "qcells": 40,
+   "res-deutschland": 3,
+   "sbp-sonne": 6,
+   "stadtwerke-tuebingen": 4,
+   "thuega-erneuerbare-energien": 8,
+   "uka": 71,
+   "wpd": 10
+  },
+  "pages_went_empty": [],
+  "sample_detail_keys": [
+   "aenderungsdatum",
+   "allianzpartnerName",
+   "allianzpartnerUrl",
+   "arbeitgeberKundennummerHash",
+   "arbeitszeitSchichtNachtWochenende",
+   "arbeitszeitTeilzeitAbend",
+   "arbeitszeitTeilzeitFlexibel",
+   "arbeitszeitTeilzeitNachmittag",
+   "arbeitszeitTeilzeitVormittag",
+   "arbeitszeitVollzeit",
+   "chiffrenummer",
+   "datumErsteVeroeffentlichung",
+   "eintrittszeitraum",
+   "firma",
+   "hauptberuf",
+   "homeofficemoeglich",
+   "istArbeitnehmerUeberlassung",
+   "istBehinderungGefordert",
+   "istBetreut",
+   "istGeringfuegigeBeschaeftigung",
+   "istPrivateArbeitsvermittlung",
+   "quereinstiegGeeignet",
+   "referenznummer",
+   "stellenangebotsBeschreibung",
+   "stellenangebotsTitel",
+   "stellenangebotsart",
+   "stellenlokationen",
+   "verguetungsangabe",
+   "veroeffentlichungszeitraum",
+   "vertragsdauer"
+  ],
+  "sample_item_keys": [
+   "aenderungsdatum",
+   "alleBerufe",
+   "arbeitgeberKundennummerHash",
+   "arbeitszeitSchichtNachtWochenende",
+   "arbeitszeitTeilzeitAbend",
+   "arbeitszeitTeilzeitFlexibel",
+   "arbeitszeitTeilzeitNachmittag",
+   "arbeitszeitTeilzeitVormittag",
+   "arbeitszeitVollzeit",
+   "befristungInMonaten",
+   "chiffrenummer",
+   "datumErsteVeroeffentlichung",
+   "eintrittszeitraum",
+   "entfernung",
+   "firma",
+   "hauptberuf",
+   "homeofficemoeglich",
+   "homeofficetyp",
+   "referenznummer",
+   "stellenangebotsTitel",
+   "stellenangebotsart",
+   "stellenlokationen",
+   "verguetungsangabe",
+   "veroeffentlichungszeitraum",
+   "vertragsdauer"
+  ],
+  "serpapi": {
+   "account": {
+    "extra_credits": 386,
+    "plan_searches_left": 0,
+    "searches_per_month": 250,
+    "this_month_usage": 250
+   },
+   "boost": 2,
+   "configured": true,
+   "filters_seen": [
+    {
+     "name": "Letzte 3 Tage",
+     "options": [
+      "Gestern",
+      "Letzte 3 Tage",
+      "Letzte Woche",
+      "Letzter Monat"
+     ]
+    },
+    {
+     "name": "Letzte 3 Tage",
+     "options": [
+      "Gestern",
+      "Letzte 3 Tage",
+      "Letzte Woche",
+      "Letzter Monat"
+     ]
+    },
+    {
+     "name": "Homeoffice",
+     "options": []
+    },
+    {
+     "name": "Jobtyp",
+     "options": [
+      "Vollzeit",
+      "Teilzeit",
+      "Vertrag",
+      "Praktikum"
+     ]
+    },
+    {
+     "name": "Jobtyp",
+     "options": [
+      "Vollzeit",
+      "Teilzeit",
+      "Vertrag",
+      "Praktikum"
+     ]
+    }
+   ],
+   "left": 385,
+   "per_query": {
+    "Google Jobs Stuttgart: Auftragsabwicklung Photovoltaik": {
+     "kept": 0,
+     "more": false,
+     "new": 0,
+     "raw": 0
+    },
+    "Google Jobs Stuttgart: Einkäufer Photovoltaik": {
+     "kept": 1,
+     "more": true,
+     "new": 1,
+     "raw": 2
+    },
+    "Google Jobs Stuttgart: Projektassistenz Erneuerbare Energien": {
+     "kept": 3,
+     "more": true,
+     "new": 0,
+     "raw": 3
+    },
+    "Google Jobs Stuttgart: Projektkoordinator Photovoltaik": {
+     "kept": 2,
+     "more": true,
+     "new": 0,
+     "raw": 3
+    },
+    "Google Jobs Stuttgart: Projektmanager Batteriespeicher": {
+     "kept": 2,
+     "more": true,
+     "new": 1,
+     "raw": 2
+    },
+    "Google Jobs Stuttgart: Projektmanager Erneuerbare Energien": {
+     "kept": 6,
+     "more": true,
+     "new": 0,
+     "raw": 10
+    },
+    "Google Jobs: Auftragsmanagement Erneuerbare Energien": {
+     "kept": 5,
+     "more": true,
+     "new": 1,
+     "raw": 10
+    },
+    "Google Jobs: Commercial Asset Manager Photovoltaik": {
+     "kept": 7,
+     "more": true,
+     "new": 1,
+     "raw": 10
+    },
+    "Google Jobs: Koordinator Netzanschluss": {
+     "kept": 3,
+     "more": true,
+     "new": 0,
+     "raw": 6
+    },
+    "Google Jobs: Netzanmeldung Photovoltaik": {
+     "kept": 5,
+     "more": true,
+     "new": 4,
+     "raw": 10
+    },
+    "Google Jobs: Project Manager Battery Storage": {
+     "kept": 0,
+     "more": false,
+     "new": 0,
+     "raw": 0
+    },
+    "Google Jobs: Project Manager Solar": {
+     "kept": 5,
+     "more": true,
+     "new": 2,
+     "raw": 10
+    },
+    "Google Jobs: Projektentwickler Batteriespeicher": {
+     "kept": 3,
+     "more": true,
+     "new": 2,
+     "raw": 10
+    },
+    "Google Jobs: Projektkaufmann Energie": {
+     "kept": 2,
+     "more": true,
+     "new": 1,
+     "raw": 3
+    },
+    "Google Jobs: Vertragsmanager Energie": {
+     "kept": 7,
+     "more": true,
+     "new": 3,
+     "raw": 10
+    },
+    "Google Jobs: kaufmännischer Projektmanager Energie": {
+     "kept": 5,
+     "more": true,
+     "new": 2,
+     "raw": 10
+    }
+   },
+   "plan": "Free Plan",
+   "queries": [
+    "Projektentwickler Batteriespeicher",
+    "Project Manager Solar",
+    "Project Manager Battery Storage",
+    "kaufmännischer Projektmanager Energie",
+    "Koordinator Netzanschluss",
+    "Vertragsmanager Energie",
+    "Commercial Asset Manager Photovoltaik",
+    "Projektkaufmann Energie",
+    "Netzanmeldung Photovoltaik",
+    "Auftragsmanagement Erneuerbare Energien",
+    "Stuttgart: Projektkoordinator Photovoltaik",
+    "Stuttgart: Projektmanager Batteriespeicher",
+    "Stuttgart: Projektmanager Erneuerbare Energien",
+    "Stuttgart: Auftragsabwicklung Photovoltaik",
+    "Stuttgart: Einkäufer Photovoltaik",
+    "Stuttgart: Projektassistenz Erneuerbare Energien"
+   ],
+   "response_keys": [
+    "filters",
+    "jobs_results",
+    "serpapi_pagination"
+   ],
+   "results": 55,
+   "uds": true,
+   "used_today": 16
+  },
+  "stale": {
+   "dup_dropped": 1,
+   "flagged": 15
+  },
+  "title_soft": {
+   "feed": 17,
+   "no_pv_dropped": 17,
+   "text": 10,
+   "title": 13
+  },
+  "watch_failed": [
+   "enbw"
+  ],
+  "workday": {
+   "429": 0,
+   "blocked": 4,
+   "deferred": [
+    "baywa-re",
+    "canadian-solar-e-storage",
+    "cip",
+    "energiedienst",
+    "getec",
+    "goldbeck-gruppe",
+    "pramac",
+    "zeppelin-power-systems"
+   ],
+   "details_cached": 0,
+   "details_failed": 0,
+   "details_read": 0,
+   "failed": [
+    "GOLDBECK (Gruppe)",
+    "BayWa r.e.",
+    "Canadian Solar e-STORAGE",
+    "Canadian Solar",
+    "Zeppelin Power Systems",
+    "Energiedienst",
+    "Copenhagen Infrastructure Partners (Hamburg)",
+    "GETEC",
+    "Pramac"
+   ],
+   "failed_ids": [
+    "goldbeck-gruppe",
+    "baywa-re",
+    "canadian-solar-e-storage",
+    "canadian-solar-e-storage",
+    "zeppelin-power-systems",
+    "energiedienst",
+    "cip",
+    "getec",
+    "pramac"
+   ],
+   "requests": 5,
+   "waited_s": 0
+  },
+  "xing": {
+   "abroad_dropped": 5,
+   "cards": 1039,
+   "details_cached": 85,
+   "details_failed": 0,
+   "details_read": 48,
+   "kept": 31,
+   "no_pv_bess_dropped": 34,
+   "old_dropped": 63,
+   "regional": {
+    "cards": 180,
+    "searches": 15
+   },
+   "search_failed": 0,
+   "searches": 98,
+   "title_dropped": 186,
+   "unique": 319
+  }
+ }
+}

@@ -1,0 +1,291 @@
+{
+ "last_date": "2026-11-28",
+ "left": 369,
+ "month": "2026-11",
+ "uds_3days": "AE2AFgbf06ZzDvczg9XBG5Z3qflXQUzIJfqOS-K3wxikKFNivscgyoFcYXuzQ6yepgKeoEMOfu1MDVu9NrGhJyLE9wxsECZQZa5lKOkZEO1JobdXgSAxc45P2LEP5Gj5A-reiZJakKkv-EWMLODo5z8mDDIx1fNGTcTTdKVslwaMp_Gcj3rYCqZzEF5BsNKRgtXLth5k_J9Smg7nlVAqIykSUKk2qpZVEF2m6BYI1eiHpqBoctUVm6xze-NgQEvNa6OF8VR56-3FyAY4lAKjo5CVWQ4V4T4qE0OIRAys1bdDi4hCvC0nEQfVLtbIIFADLsPh7WLshcMNLTHiBQmdOePIwXyzONKw30FrdTdY6NdUVcUn8h4O2Xf2_eTEco7kgSwOEpBDDPSmRedOddRcPdCKS3DpFCZLjQ",
+ "uds_name": "Letzte 3 Tage",
+ "used_month": 382,
+ "used_today": 16,
+ "yield": {
+  "Google Jobs Stuttgart: Auftragsabwicklung Photovoltaik": {
+   "full": 1,
+   "kept": 0,
+   "last": "2026-11-28",
+   "new": 0,
+   "raw": 1,
+   "runs": 2
+  },
+  "Google Jobs Stuttgart: Einkäufer Photovoltaik": {
+   "full": 2,
+   "kept": 1,
+   "last": "2026-11-28",
+   "new": 1,
+   "raw": 3,
+   "runs": 2
+  },
+  "Google Jobs Stuttgart: Koordinator Netzanschluss": {
+   "full": 0,
+   "kept": 0,
+   "last": "2026-11-27",
+   "new": 0,
+   "raw": 0,
+   "runs": 1
+  },
+  "Google Jobs Stuttgart: Projektassistenz Erneuerbare Energien": {
+   "full": 2,
+   "kept": 5,
+   "last": "2026-11-28",
+   "new": 0,
+   "raw": 5,
+   "runs": 2
+  },
+  "Google Jobs Stuttgart: Projektkoordinator Photovoltaik": {
+   "full": 2,
+   "kept": 3,
+   "last": "2026-11-28",
+   "new": 0,
+   "raw": 5,
+   "runs": 2
+  },
+  "Google Jobs Stuttgart: Projektmanager Batteriespeicher": {
+   "full": 2,
+   "kept": 4,
+   "last": "2026-11-28",
+   "new": 1,
+   "raw": 7,
+   "runs": 2
+  },
+  "Google Jobs Stuttgart: Projektmanager Energie": {
+   "full": 1,
+   "kept": 4,
+   "last": "2026-11-27",
+   "new": 2,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs Stuttgart: Projektmanager Energiedienstleistungen": {
+   "full": 1,
+   "kept": 5,
+   "last": "2026-11-27",
+   "new": 1,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs Stuttgart: Projektmanager Erneuerbare Energien": {
+   "full": 2,
+   "kept": 14,
+   "last": "2026-11-28",
+   "new": 3,
+   "raw": 20,
+   "runs": 2
+  },
+  "Google Jobs Stuttgart: Projektmanager Photovoltaik": {
+   "full": 2,
+   "kept": 11,
+   "last": "2026-11-27",
+   "new": 3,
+   "raw": 20,
+   "runs": 2
+  },
+  "Google Jobs Stuttgart: Sachbearbeiter Netzanschluss": {
+   "full": 1,
+   "kept": 1,
+   "last": "2026-11-27",
+   "new": 0,
+   "raw": 2,
+   "runs": 1
+  },
+  "Google Jobs: Auftragsabwicklung Photovoltaik": {
+   "full": 1,
+   "kept": 4,
+   "last": "2026-11-27",
+   "new": 0,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Auftragsmanagement Erneuerbare Energien": {
+   "full": 2,
+   "kept": 12,
+   "last": "2026-11-28",
+   "new": 1,
+   "raw": 20,
+   "runs": 2
+  },
+  "Google Jobs: Commercial Asset Manager Photovoltaik": {
+   "full": 2,
+   "kept": 13,
+   "last": "2026-11-28",
+   "new": 2,
+   "raw": 20,
+   "runs": 2
+  },
+  "Google Jobs: Einkäufer Photovoltaik": {
+   "full": 1,
+   "kept": 6,
+   "last": "2026-11-27",
+   "new": 1,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Koordinator Netzanschluss": {
+   "full": 2,
+   "kept": 5,
+   "last": "2026-11-28",
+   "new": 1,
+   "raw": 12,
+   "runs": 2
+  },
+  "Google Jobs: Netzanmeldung Photovoltaik": {
+   "full": 2,
+   "kept": 9,
+   "last": "2026-11-28",
+   "new": 5,
+   "raw": 20,
+   "runs": 2
+  },
+  "Google Jobs: Procurement Manager Battery Storage": {
+   "full": 0,
+   "kept": 0,
+   "last": "2026-11-26",
+   "new": 0,
+   "raw": 0,
+   "runs": 1
+  },
+  "Google Jobs: Project Manager Battery Storage": {
+   "full": 0,
+   "kept": 0,
+   "last": "2026-11-28",
+   "new": 0,
+   "raw": 0,
+   "runs": 1
+  },
+  "Google Jobs: Project Manager Solar": {
+   "full": 1,
+   "kept": 5,
+   "last": "2026-11-28",
+   "new": 2,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Project Support Erneuerbare Energien": {
+   "full": 1,
+   "kept": 6,
+   "last": "2026-11-26",
+   "new": 1,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Projektassistenz Erneuerbare Energien": {
+   "full": 1,
+   "kept": 8,
+   "last": "2026-11-27",
+   "new": 2,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Projektentwickler Batteriespeicher": {
+   "full": 1,
+   "kept": 3,
+   "last": "2026-11-28",
+   "new": 2,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Projektentwickler Photovoltaik": {
+   "full": 1,
+   "kept": 6,
+   "last": "2026-11-27",
+   "new": 0,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Projektkaufmann Energie": {
+   "full": 2,
+   "kept": 5,
+   "last": "2026-11-28",
+   "new": 2,
+   "raw": 11,
+   "runs": 2
+  },
+  "Google Jobs: Projektkoordinator Batteriespeicher": {
+   "full": 1,
+   "kept": 6,
+   "last": "2026-11-26",
+   "new": 4,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Projektkoordinator Photovoltaik": {
+   "full": 1,
+   "kept": 10,
+   "last": "2026-11-27",
+   "new": 2,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Projektmanager Batteriespeicher": {
+   "full": 1,
+   "kept": 6,
+   "last": "2026-11-27",
+   "new": 3,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Projektmanager Energiedienstleistungen": {
+   "full": 1,
+   "kept": 7,
+   "last": "2026-11-27",
+   "new": 3,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Projektmanager Erneuerbare Energien": {
+   "full": 1,
+   "kept": 7,
+   "last": "2026-11-27",
+   "new": 4,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Projektmanager Photovoltaik": {
+   "full": 1,
+   "kept": 9,
+   "last": "2026-11-27",
+   "new": 4,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Sachbearbeiter Einspeisung": {
+   "full": 1,
+   "kept": 7,
+   "last": "2026-11-27",
+   "new": 5,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Sachbearbeiter Netzanschluss": {
+   "full": 1,
+   "kept": 6,
+   "last": "2026-11-26",
+   "new": 2,
+   "raw": 10,
+   "runs": 1
+  },
+  "Google Jobs: Vertragsmanager Energie": {
+   "full": 2,
+   "kept": 14,
+   "last": "2026-11-28",
+   "new": 8,
+   "raw": 20,
+   "runs": 2
+  },
+  "Google Jobs: kaufmännischer Projektmanager Energie": {
+   "full": 1,
+   "kept": 5,
+   "last": "2026-11-28",
+   "new": 2,
+   "raw": 10,
+   "runs": 1
+  }
+ }
+}
